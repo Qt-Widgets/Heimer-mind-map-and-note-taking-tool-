@@ -17,32 +17,38 @@
 #define SELECTION_GROUP_HPP
 
 #include <QPointF>
+#include <unordered_set>
+#include <vector>
 
-#include <set>
+#include "types.hpp"
 
 class Node;
 
 class SelectionGroup
 {
 public:
+    void addSelectedNode(NodeR node);
+
     void clear();
 
-    bool hasNode(Node & node) const;
+    bool hasNode(NodeR node) const;
 
-    void move(Node & reference, QPointF location);
+    bool isEmpty() const;
 
-    void setSelectedNode(Node * node);
+    void move(NodeR reference, QPointF location);
 
-    Node * selectedNode() const;
+    const std::vector<NodeP> nodes() const;
+
+    NodeP selectedNode() const;
 
     size_t size() const;
 
-    void toggleNode(Node & node);
+    void toggleNode(NodeR node);
 
 private:
-    std::set<Node *> m_nodes;
-
-    Node * m_selectedNode = nullptr;
+    // Use vector because we want to keep the order
+    std::vector<NodeP> m_nodes;
+    std::unordered_set<NodeP> m_nodeSet;
 };
 
 #endif // SELECTION_GROUP_HPP

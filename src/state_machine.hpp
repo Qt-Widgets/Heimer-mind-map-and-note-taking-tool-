@@ -13,8 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef STATEMACHINE_HPP
-#define STATEMACHINE_HPP
+#ifndef STATE_MACHINE_HPP
+#define STATE_MACHINE_HPP
 
 #include <QObject>
 
@@ -33,14 +33,21 @@ public:
         Exit,
         Init,
         InitializeNewMindMap,
-        SaveMindMap,
+        OpenRecent,
+        OpenDrop,
+        Save,
         ShowBackgroundColorDialog,
         ShowEdgeColorDialog,
+        ShowGridColorDialog,
         ShowImageFileDialog,
+        ShowLayoutOptimizationDialog,
+        ShowNodeColorDialog,
         ShowNotSavedDialog,
         ShowOpenDialog,
         ShowPngExportDialog,
         ShowSaveAsDialog,
+        ShowSvgExportDialog,
+        ShowTextColorDialog,
         TryCloseWindow
     };
 
@@ -50,28 +57,42 @@ public:
         BackgroundColorChangeRequested,
         EdgeColorChanged,
         EdgeColorChangeRequested,
+        GridColorChanged,
+        GridColorChangeRequested,
         ImageAttachmentRequested,
         ImageLoadFailed,
+        LayoutOptimizationRequested,
+        LayoutOptimized,
         MainWindowInitialized,
         MindMapOpened,
         MindMapSaved,
         MindMapSavedAs,
         MindMapSaveFailed,
+        MindMapSaveAsCanceled,
         MindMapSaveAsFailed,
         NewMindMapInitialized,
         NewSelected,
+        NodeColorChanged,
+        NodeColorChangeRequested,
         NotSavedDialogAccepted,
         NotSavedDialogCanceled,
         NotSavedDialogDiscarded,
-        PngExported,
-        PngExportSelected,
+        OpeningMindMapCanceled,
         OpeningMindMapFailed,
         OpenSelected,
+        PngExported,
+        PngExportSelected,
         QuitSelected,
-        SaveSelected,
+        RecentFileSelected,
+        DropFileSelected,
+        RedoSelected,
         SaveAsSelected,
-        UndoSelected,
-        RedoSelected
+        SaveSelected,
+        SvgExported,
+        SvgExportSelected,
+        TextColorChanged,
+        TextColorChangeRequested,
+        UndoSelected
     };
 
     enum class QuitType
@@ -79,6 +100,8 @@ public:
         None,
         New,
         Open,
+        OpenRecent,
+        OpenDrop,
         Close
     };
 
@@ -100,4 +123,4 @@ private:
     std::shared_ptr<Mediator> m_mediator;
 };
 
-#endif // STATEMACHINE_HPP
+#endif // STATE_MACHINE_HPP

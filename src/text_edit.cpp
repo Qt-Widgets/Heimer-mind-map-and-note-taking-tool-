@@ -14,6 +14,7 @@
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
 #include "text_edit.hpp"
+#include "test_mode.hpp"
 
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -25,10 +26,12 @@
 TextEdit::TextEdit(QGraphicsItem * parentItem)
   : QGraphicsTextItem(parentItem)
 {
-#ifndef HEIMER_UNIT_TEST
-    setTextInteractionFlags(Qt::TextEditorInteraction);
-    setDefaultTextColor({ 0, 0, 0 });
-#endif
+    if (!TestMode::enabled()) {
+        setTextInteractionFlags(Qt::TextEditorInteraction);
+        setDefaultTextColor({ 0, 0, 0 });
+    } else {
+        TestMode::logDisabledCode("TextEdit initialization");
+    }
 }
 
 void TextEdit::keyPressEvent(QKeyEvent * event)
@@ -54,6 +57,13 @@ void TextEdit::mousePressEvent(QGraphicsSceneMouseEvent * event)
     QGraphicsTextItem::mousePressEvent(event);
 }
 
+void TextEdit::contextMenuEvent(QGraphicsSceneContextMenuEvent * event)
+{
+    // Prevents the system context menu from opening.
+
+    event->ignore();
+}
+
 QString TextEdit::text() const
 {
     return m_text;
@@ -61,39 +71,24 @@ QString TextEdit::text() const
 
 void TextEdit::setText(const QString & text)
 {
-    m_text = text;
-    setPlainText(text);
-}
-
-double TextEdit::maxHeight() const
-{
-    return m_maxHeight;
-}
-
-void TextEdit::setMaxHeight(double maxHeight)
-{
-    m_maxHeight = maxHeight;
-}
-
-double TextEdit::maxWidth() const
-{
-    return m_maxWidth;
+    if (m_text != text) {
+        m_text = text;
+        if (!TestMode::enabled()) {
+            setPlainText(text);
+        } else {
+            TestMode::logDisabledCode("Set TextEdit plain text");
+        }
+    }
 }
 
 void TextEdit::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget)
 {
-    QStyleOptionGraphicsItem * style = const_cast<QStyleOptionGraphicsItem *>(option);
-
     // Remove the HasFocus style state, to prevent the dotted line from being drawn.
+    auto style = const_cast<QStyleOptionGraphicsItem *>(option);
     style->state &= ~QStyle::State_HasFocus;
 
     painter->fillRect(option->rect, m_backgroundColor);
     QGraphicsTextItem::paint(painter, style, widget);
-}
-
-void TextEdit::focusInEvent(QFocusEvent * event)
-{
-    QGraphicsTextItem::focusInEvent(event);
 }
 
 void TextEdit::setBackgroundColor(const QColor & backgroundColor)
@@ -103,22 +98,17 @@ void TextEdit::setBackgroundColor(const QColor & backgroundColor)
     update();
 }
 
-void TextEdit::setMaxWidth(double maxWidth)
-{
-    m_maxWidth = maxWidth;
-}
-
 void TextEdit::setTextSize(int textSize)
 {
     m_textSize = textSize;
-#ifndef HEIMER_UNIT_TEST
-    auto && currentFont = font();
-    currentFont.setPointSize(textSize);
-    setFont(currentFont);
-    update();
-#endif
+    if (!TestMode::enabled()) {
+        auto && currentFont = font();
+        currentFont.setPointSize(textSize);
+        setFont(currentFont);
+        update();
+    } else {
+        TestMode::logDisabledCode("TextEdit::setTextSize");
+    }
 }
 
-TextEdit::~TextEdit()
-{
-}
+TextEdit::~TextEdit() = default;

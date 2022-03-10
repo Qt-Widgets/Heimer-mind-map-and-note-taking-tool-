@@ -13,18 +13,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef EDITORVIEW_HPP
-#define EDITORVIEW_HPP
+#ifndef EDITOR_VIEW_HPP
+#define EDITOR_VIEW_HPP
 
-#include "copy_paste.hpp"
 #include "grid.hpp"
 #include "main_context_menu.hpp"
 #include "state_machine.hpp"
+#include "types.hpp"
 
 #include <QColor>
 #include <QGraphicsView>
 #include <QMenu>
 
+#include <optional>
 #include <set>
 
 class Edge;
@@ -51,11 +52,19 @@ public:
 
     ~EditorView() override;
 
+    const Grid & grid() const;
+
     void resetDummyDragItems();
 
-    void zoom(int amount);
+    void restoreZoom();
+
+    void saveZoom();
+
+    void zoom(double amount);
 
     void zoomToFit(QRectF nodeBoundingRect);
+
+    QString dropFile() const;
 
 public slots:
 
@@ -63,11 +72,17 @@ public slots:
 
     void setEdgeColor(const QColor & edgeColor);
 
+    void setGridColor(const QColor & edgeColor);
+
     void setEdgeWidth(double edgeWidth);
 
     void setGridSize(int size);
 
+    void setGridVisible(bool visible);
+
 protected:
+    void mouseDoubleClickEvent(QMouseEvent * event) override;
+
     void mouseMoveEvent(QMouseEvent * event) override;
 
     void mousePressEvent(QMouseEvent * event) override;
@@ -76,44 +91,37 @@ protected:
 
     void wheelEvent(QWheelEvent * event) override;
 
+    void dropEvent(QDropEvent * event) override;
+
+    void dragMoveEvent(QDragMoveEvent * event) override;
 signals:
 
-    void actionTriggered(StateMachine::Action action, Node * node = nullptr);
+    void actionTriggered(StateMachine::Action action);
 
     void newNodeRequested(QPointF position);
-
-private slots:
-
-    void openNodeColorDialog();
-
-    void openNodeTextColorDialog();
 
 private:
     void finishRubberBand();
 
     void handleMousePressEventOnBackground(QMouseEvent & event);
 
-    void handleMousePressEventOnEdge(QMouseEvent & event, Edge & edge);
+    void handleMousePressEventOnEdge(QMouseEvent & event, EdgeR edge);
 
-    void handleMousePressEventOnNode(QMouseEvent & event, Node & node);
+    void handleMousePressEventOnNode(QMouseEvent & event, NodeR node);
 
     void handleMousePressEventOnNodeHandle(QMouseEvent & event, NodeHandle & nodeHandle);
 
-    void handleLeftButtonClickOnNode(Node & node);
+    void handleLeftButtonClickOnNode(NodeR node);
 
     void handleLeftButtonClickOnNodeHandle(NodeHandle & nodeHandle);
 
-    void handleRightButtonClickOnEdge(Edge & edge);
+    void handleRightButtonClickOnEdge(EdgeR edge);
 
-    void handleRightButtonClickOnNode(Node & node);
-
-    void initiateNewNodeDrag(NodeHandle & nodeHandle);
-
-    void initiateNodeDrag(Node & node);
+    void handleRightButtonClickOnNode(NodeR node);
 
     void initiateRubberBand();
 
-    bool isControlPressed() const;
+    bool isModifierPressed() const;
 
     void openBackgroundContextMenu();
 
@@ -121,15 +129,15 @@ private:
 
     void openMainContextMenu(MainContextMenu::Mode mode);
 
-    void removeNodeFromSelectionGroup(Node & node);
-
     void showDummyDragEdge(bool show);
 
     void showDummyDragNode(bool show);
 
-    void updateScale(int value);
+    void updateScale();
 
     void updateRubberBand();
+
+    void drawBackground(QPainter * painter, const QRectF & rect) override;
 
     Grid m_grid;
 
@@ -149,17 +157,15 @@ private:
 
     QPointF m_mappedPos;
 
-    int m_scaleValue = 100;
+    double m_scale = 1.0;
 
     Mediator & m_mediator;
 
-    CopyPaste m_copyPaste;
+    NodeU m_dummyDragNode;
 
-    Node * m_dummyDragNode = nullptr;
+    EdgeU m_dummyDragEdge;
 
-    Edge * m_dummyDragEdge = nullptr;
-
-    std::shared_ptr<Node> m_connectionTargetNode;
+    NodeS m_connectionTargetNode;
 
     int m_cornerRadius = 0;
 
@@ -175,6 +181,21 @@ private:
     EdgeContextMenu * m_edgeContextMenu;
 
     MainContextMenu * m_mainContextMenu;
+
+    bool m_gridVisible = false;
+
+    QString m_dropFile {};
+
+    struct ZoomParameters
+    {
+        QRectF sceneRect;
+
+        QPointF viewCenter;
+
+        double scale = 1.0;
+    };
+
+    std::optional<ZoomParameters> m_savedZoom;
 };
 
-#endif // EDITORVIEW_HPP
+#endif // EDITOR_VIEW_HPP

@@ -13,10 +13,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef EDGETEXTEDIT_HPP
-#define EDGETEXTEDIT_HPP
+#ifndef EDGE_TEXT_EDIT_HPP
+#define EDGE_TEXT_EDIT_HPP
 
 #include "text_edit.hpp"
+#include "types.hpp"
 
 #include <QPropertyAnimation>
 #include <QTimer>
@@ -26,20 +27,26 @@ class Edge;
 class EdgeTextEdit : public TextEdit
 {
 public:
-    EdgeTextEdit(Edge * parentItem);
+    EdgeTextEdit(EdgeP parentItem);
 
-    void setVisible(bool visible);
+    enum class VisibilityChangeReason
+    {
+        Default,
+        AvailableSpaceChanged
+    };
 
-    virtual void contextMenuEvent(QGraphicsSceneContextMenuEvent * event) override;
+    void setVisible(bool visible, VisibilityChangeReason vcr = VisibilityChangeReason::Default);
 
     virtual void hoverEnterEvent(QGraphicsSceneHoverEvent * event) override;
 
     virtual void hoverLeaveEvent(QGraphicsSceneHoverEvent * event) override;
 
 private:
-    QPropertyAnimation m_sizeAnimation;
+    void setAnimationConfig(bool visible);
+
+    QPropertyAnimation m_opacityAnimation;
 
     QTimer m_visibilityTimer;
 };
 
-#endif // EDGETEXTEDIT_HPP
+#endif // EDGE_TEXT_EDIT_HPP

@@ -13,9 +13,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef MINDMAPDATA_HPP
-#define MINDMAPDATA_HPP
+#ifndef MIND_MAP_DATA_HPP
+#define MIND_MAP_DATA_HPP
 
+#include <QFont>
 #include <QString>
 
 #include "constants.hpp"
@@ -23,6 +24,7 @@
 #include "image_manager.hpp"
 #include "mind_map_data_base.hpp"
 
+class Grid;
 class ObjectModelLoader;
 
 class MindMapData : public MindMapDataBase
@@ -32,7 +34,13 @@ public:
 
     MindMapData(const MindMapData & other);
 
-    virtual ~MindMapData();
+    virtual ~MindMapData() override;
+
+    void applyGrid(const Grid & grid);
+
+    double aspectRatio() const;
+
+    void setAspectRatio(double aspectRatio);
 
     QColor backgroundColor() const;
 
@@ -46,17 +54,29 @@ public:
 
     void setEdgeColor(const QColor & edgeColor);
 
+    QColor gridColor() const;
+
+    void setGridColor(const QColor & edgeColor);
+
     double edgeWidth() const;
 
     void setEdgeWidth(double width);
 
-    QString fileName() const;
+    QString fileName() const override;
 
-    void setFileName(QString fileName);
+    void setFileName(QString fileName) override;
 
-    Graph & graph();
+    GraphR graph() override;
 
-    const Graph & graph() const;
+    GraphCR graph() const override;
+
+    double minEdgeLength() const;
+
+    void setMinEdgeLength(double minEdgeLength);
+
+    QFont font() const;
+
+    void changeFont(QFont font);
 
     int textSize() const;
 
@@ -81,11 +101,19 @@ private:
 
     QColor m_edgeColor = Constants::MindMap::DEFAULT_EDGE_COLOR;
 
+    QColor m_gridColor = Constants::MindMap::DEFAULT_GRID_COLOR;
+
     double m_edgeWidth = Constants::MindMap::DEFAULT_EDGE_WIDTH;
+
+    QFont m_font;
 
     int m_textSize = Constants::MindMap::DEFAULT_TEXT_SIZE;
 
     int m_cornerRadius = Constants::Node::DEFAULT_CORNER_RADIUS;
+
+    double m_aspectRatio = Constants::LayoutOptimizer::DEFAULT_ASPECT_RATIO;
+
+    double m_minEdgeLength = Constants::LayoutOptimizer::DEFAULT_MIN_EDGE_LENGTH;
 
     Graph m_graph;
 
@@ -94,4 +122,4 @@ private:
 
 typedef std::shared_ptr<MindMapData> MindMapDataPtr;
 
-#endif // MINDMAPDATA_HPP
+#endif // MIND_MAP_DATA_HPP

@@ -17,24 +17,37 @@
 
 #include "node.hpp"
 
-#include <map>
+#include <algorithm>
+
+void SelectionGroup::addSelectedNode(NodeR node)
+{
+    if (!m_nodeSet.count(&node)) {
+        m_nodeSet.insert(&node);
+        m_nodes.push_back(&node);
+        node.setSelected(true);
+    }
+}
 
 void SelectionGroup::clear()
 {
     for (auto && node : m_nodes) {
         node->setSelected(false);
     }
+    m_nodeSet.clear();
     m_nodes.clear();
-
-    m_selectedNode = nullptr;
 }
 
-bool SelectionGroup::hasNode(Node & node) const
+bool SelectionGroup::hasNode(NodeR node) const
 {
-    return m_nodes.count(&node);
+    return m_nodeSet.count(&node);
 }
 
-void SelectionGroup::move(Node & reference, QPointF location)
+bool SelectionGroup::isEmpty() const
+{
+    return m_nodeSet.empty();
+}
+
+void SelectionGroup::move(NodeR reference, QPointF location)
 {
     std::map<int, QPointF> delta;
     for (auto && node : m_nodes) {
@@ -52,22 +65,14 @@ void SelectionGroup::move(Node & reference, QPointF location)
     }
 }
 
-void SelectionGroup::setSelectedNode(Node * node)
+const std::vector<NodeP> SelectionGroup::nodes() const
 {
-    if (selectedNode()) {
-        selectedNode()->setSelected(false);
-    }
-
-    if (node) {
-        node->setSelected(true);
-    }
-
-    m_selectedNode = node;
+    return m_nodes;
 }
 
-Node * SelectionGroup::selectedNode() const
+NodeP SelectionGroup::selectedNode() const
 {
-    return m_selectedNode;
+    return !m_nodes.empty() ? *m_nodes.begin() : nullptr;
 }
 
 size_t SelectionGroup::size() const
@@ -75,13 +80,13 @@ size_t SelectionGroup::size() const
     return m_nodes.size();
 }
 
-void SelectionGroup::toggleNode(Node & node)
+void SelectionGroup::toggleNode(NodeR node)
 {
     if (node.selected()) {
-        m_nodes.erase(&node);
+        m_nodes.erase(std::find(m_nodes.begin(), m_nodes.end(), &node));
         node.setSelected(false);
+        m_nodeSet.erase(&node);
     } else {
-        m_nodes.insert(&node);
-        node.setSelected(true);
+        addSelectedNode(node);
     }
 }

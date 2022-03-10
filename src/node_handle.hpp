@@ -13,11 +13,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef NODEHANDLE_HPP
-#define NODEHANDLE_HPP
+#ifndef NODE_HANDLE_HPP
+#define NODE_HANDLE_HPP
 
 #include <QGraphicsItem>
 #include <QPropertyAnimation>
+#include <QTimer>
+
+#include "types.hpp"
 
 class Node;
 
@@ -37,27 +40,31 @@ public:
         TextColor
     };
 
-    NodeHandle(Node & parentNode, Role role, int radius);
+    NodeHandle(NodeR parentNode, Role role, int radius);
 
-    virtual ~NodeHandle();
+    virtual ~NodeHandle() override;
 
-    virtual QRectF boundingRect() const override;
+    QRectF boundingRect() const override;
 
-    virtual void paint(QPainter * painter,
-                       const QStyleOptionGraphicsItem * option, QWidget * widget = nullptr) override;
+    void hoverEnterEvent(QGraphicsSceneHoverEvent * event) override;
 
-    bool contains(const QPointF & pos);
+    void hoverLeaveEvent(QGraphicsSceneHoverEvent * event) override;
+
+    void hoverMoveEvent(QGraphicsSceneHoverEvent * event) override;
+
+    void paint(QPainter * painter,
+               const QStyleOptionGraphicsItem * option, QWidget * widget = nullptr) override;
 
     void setVisible(bool visible);
 
     Role role() const;
 
-    Node & parentNode() const;
+    NodeR parentNode() const;
 
     int radius() const;
 
 private:
-    Node & m_parentNode;
+    NodeR m_parentNode;
 
     Role m_role;
 
@@ -69,8 +76,10 @@ private:
 
     QSize m_size;
 
+    QTimer m_visibilityTimer;
+
     // Logical state
     bool m_visible = false;
 };
 
-#endif // NODEHANDLE_HPP
+#endif // NODE_HANDLE_HPP

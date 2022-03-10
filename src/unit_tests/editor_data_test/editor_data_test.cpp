@@ -15,13 +15,112 @@
 
 #include "editor_data_test.hpp"
 
+#include "alz_serializer.hpp"
 #include "editor_data.hpp"
 #include "mind_map_data.hpp"
-#include "node_base.hpp"
-#include "serializer.hpp"
+#include "test_mode.hpp"
 
 EditorDataTest::EditorDataTest()
 {
+    TestMode::setEnabled(true);
+}
+
+void EditorDataTest::testAddAndDeleteEdge()
+{
+    const auto data = std::make_shared<MindMapData>();
+    EditorData editorData;
+    editorData.setMindMapData(data);
+
+    const auto node0 = std::make_shared<Node>();
+    data->graph().addNode(node0);
+    const auto node1 = std::make_shared<Node>();
+    data->graph().addNode(node1);
+
+    const auto edge0 = std::make_shared<Edge>(node0, node1);
+    editorData.addEdge(edge0);
+
+    QCOMPARE(editorData.mindMapData()->graph().areDirectlyConnected(node0, node1), true);
+
+    editorData.deleteEdge(*edge0);
+
+    QCOMPARE(editorData.mindMapData()->graph().areDirectlyConnected(node0, node1), false);
+
+    const auto edge1 = std::make_shared<Edge>(node0, node1);
+    editorData.addEdge(edge1);
+
+    QCOMPARE(editorData.mindMapData()->graph().areDirectlyConnected(node0, node1), true);
+
+    editorData.deleteEdge(node0->index(), node1->index());
+
+    QCOMPARE(editorData.mindMapData()->graph().areDirectlyConnected(node0, node1), false);
+}
+
+void EditorDataTest::testGroupConnection()
+{
+    EditorData editorData;
+    editorData.setMindMapData(std::make_shared<MindMapData>());
+    QCOMPARE(editorData.areSelectedNodesConnectable(), false);
+
+    const auto node0 = editorData.addNodeAt(QPointF(0, 0));
+    const auto node1 = editorData.addNodeAt(QPointF(1, 1));
+    const auto node2 = editorData.addNodeAt(QPointF(2, 2));
+
+    QCOMPARE(editorData.selectionGroupSize(), size_t(0));
+    editorData.toggleNodeInSelectionGroup(*node0);
+    QCOMPARE(editorData.areSelectedNodesConnectable(), false);
+    editorData.toggleNodeInSelectionGroup(*node2);
+    QCOMPARE(editorData.areSelectedNodesConnectable(), true);
+    editorData.toggleNodeInSelectionGroup(*node1);
+    QCOMPARE(editorData.areSelectedNodesConnectable(), true);
+
+    const auto edges = editorData.connectSelectedNodes();
+    QCOMPARE(edges.at(0)->sourceNode().index(), node0->index());
+    QCOMPARE(edges.at(0)->targetNode().index(), node2->index());
+    QCOMPARE(edges.at(1)->sourceNode().index(), node2->index());
+    QCOMPARE(edges.at(1)->targetNode().index(), node1->index());
+    QCOMPARE(editorData.areSelectedNodesConnectable(), false);
+}
+
+void EditorDataTest::testGroupDisconnection()
+{
+    EditorData editorData;
+    editorData.setMindMapData(std::make_shared<MindMapData>());
+    QCOMPARE(editorData.areSelectedNodesDisconnectable(), false);
+
+    const auto node0 = editorData.addNodeAt(QPointF(0, 0));
+    const auto node1 = editorData.addNodeAt(QPointF(1, 1));
+    const auto node2 = editorData.addNodeAt(QPointF(2, 2));
+
+    QCOMPARE(editorData.selectionGroupSize(), size_t(0));
+    editorData.toggleNodeInSelectionGroup(*node0);
+    QCOMPARE(editorData.areSelectedNodesDisconnectable(), false);
+    editorData.toggleNodeInSelectionGroup(*node2);
+    QCOMPARE(editorData.areSelectedNodesDisconnectable(), false);
+    editorData.toggleNodeInSelectionGroup(*node1);
+    QCOMPARE(editorData.areSelectedNodesDisconnectable(), false);
+
+    editorData.connectSelectedNodes();
+    QCOMPARE(editorData.areSelectedNodesDisconnectable(), true);
+    editorData.disconnectSelectedNodes();
+    QCOMPARE(editorData.areSelectedNodesDisconnectable(), false);
+    QCOMPARE(editorData.mindMapData()->graph().areDirectlyConnected(node0, node2), false);
+    QCOMPARE(editorData.mindMapData()->graph().areDirectlyConnected(node2, node1), false);
+}
+
+void EditorDataTest::testGroupDelete()
+{
+    EditorData editorData;
+    editorData.setMindMapData(std::make_shared<MindMapData>());
+    auto node0 = editorData.addNodeAt(QPointF(0, 0));
+    auto node1 = editorData.addNodeAt(QPointF(1, 1));
+
+    editorData.toggleNodeInSelectionGroup(*node0);
+    editorData.toggleNodeInSelectionGroup(*node1);
+
+    editorData.deleteSelectedNodes();
+
+    QCOMPARE(editorData.selectionGroupSize(), size_t(0));
+    QCOMPARE(editorData.mindMapData()->graph().getNodes().empty(), true);
 }
 
 void EditorDataTest::testGroupMove()
@@ -65,8 +164,8 @@ void EditorDataTest::testGroupSelection()
     QCOMPARE(node0->selected(), false);
     QCOMPARE(node1->selected(), false);
 
-    editorData.toggleNodeInSelectionGroup(*node0);
-    editorData.toggleNodeInSelectionGroup(*node1);
+    editorData.addNodeToSelectionGroup(*node0);
+    editorData.addNodeToSelectionGroup(*node1);
 
     QCOMPARE(editorData.selectionGroupSize(), size_t(2));
     QCOMPARE(node0->selected(), true);
@@ -84,11 +183,10 @@ void EditorDataTest::testLoadState()
 
     const auto node0 = editorData.addNodeAt(QPointF(0, 0));
     const auto node1 = editorData.addNodeAt(QPointF(100, 0));
-    const auto edge01 = editorData.addEdge(std::make_shared<Edge>(*node0, *node1));
+    const auto edge01 = editorData.addEdge(std::make_shared<Edge>(node0, node1));
 
     editorData.toggleNodeInSelectionGroup(*node0);
     editorData.setSelectedEdge(edge01.get());
-    editorData.setSelectedNode(node0.get());
     editorData.mindMapData()->imageManager().addImage({});
     editorData.saveUndoPoint();
 
@@ -156,6 +254,40 @@ void EditorDataTest::testRedoAddNodes()
     QCOMPARE(editorData.mindMapData()->graph().numNodes(), static_cast<size_t>(2));
 }
 
+void EditorDataTest::testTextSearch()
+{
+    const auto data = std::make_shared<MindMapData>();
+    EditorData editorData;
+    editorData.setMindMapData(data);
+
+    const auto node0 = std::make_shared<Node>();
+    data->graph().addNode(node0);
+    const auto node1 = std::make_shared<Node>();
+    data->graph().addNode(node1);
+    const auto node2 = std::make_shared<Node>();
+    data->graph().addNode(node2);
+
+    QCOMPARE(node0->selected(), false);
+    QCOMPARE(node1->selected(), false);
+    QCOMPARE(node2->selected(), false);
+
+    node0->setText("Foo");
+    node1->setText("Bar");
+    node2->setText("FooBar");
+
+    editorData.selectNodesByText("foo");
+
+    QCOMPARE(node0->selected(), true);
+    QCOMPARE(node1->selected(), false);
+    QCOMPARE(node2->selected(), true);
+
+    editorData.selectNodesByText("");
+
+    QCOMPARE(node0->selected(), false);
+    QCOMPARE(node1->selected(), false);
+    QCOMPARE(node2->selected(), false);
+}
+
 void EditorDataTest::testUndoAddEdge()
 {
     const auto data = std::make_shared<MindMapData>();
@@ -169,13 +301,13 @@ void EditorDataTest::testUndoAddEdge()
     const auto node2 = std::make_shared<Node>();
     data->graph().addNode(node2);
 
-    const auto edge01 = std::make_shared<Edge>(*node0, *node1);
+    const auto edge01 = std::make_shared<Edge>(node0, node1);
 
     editorData.saveUndoPoint();
 
     editorData.addEdge(edge01);
 
-    const auto edge21 = std::make_shared<Edge>(*node2, *node1);
+    const auto edge21 = std::make_shared<Edge>(node2, node1);
 
     editorData.saveUndoPoint();
 
@@ -223,29 +355,29 @@ void EditorDataTest::testUndoArrowMode()
     const auto node1 = std::make_shared<Node>();
     data->graph().addNode(node1);
 
-    const auto edge01 = std::make_shared<Edge>(*node0, *node1);
+    const auto edge01 = std::make_shared<Edge>(node0, node1);
 
     editorData.addEdge(edge01);
 
-    QCOMPARE(edge01->arrowMode(), EdgeBase::ArrowMode::Single);
+    QCOMPARE(edge01->arrowMode(), Edge::ArrowMode::Single);
 
-    edge01->setArrowMode(EdgeBase::ArrowMode::Double);
+    edge01->setArrowMode(Edge::ArrowMode::Double);
 
     editorData.saveUndoPoint();
 
-    edge01->setArrowMode(EdgeBase::ArrowMode::Hidden);
+    edge01->setArrowMode(Edge::ArrowMode::Hidden);
 
     editorData.undo();
 
     const auto undoneEdge = editorData.mindMapData()->graph().getEdges().at(0);
 
-    QCOMPARE(undoneEdge->arrowMode(), EdgeBase::ArrowMode::Double);
+    QCOMPARE(undoneEdge->arrowMode(), Edge::ArrowMode::Double);
 
     editorData.redo();
 
     const auto redoneEdge = editorData.mindMapData()->graph().getEdges().at(0);
 
-    QCOMPARE(redoneEdge->arrowMode(), EdgeBase::ArrowMode::Hidden);
+    QCOMPARE(redoneEdge->arrowMode(), Edge::ArrowMode::Hidden);
 }
 
 void EditorDataTest::testUndoDeleteEdge()
@@ -259,7 +391,7 @@ void EditorDataTest::testUndoDeleteEdge()
     const auto node1 = std::make_shared<Node>();
     data->graph().addNode(node1);
 
-    const auto edge01 = std::make_shared<Edge>(*node0, *node1);
+    const auto edge01 = std::make_shared<Edge>(node0, node1);
 
     editorData.saveUndoPoint();
 
@@ -357,6 +489,40 @@ void EditorDataTest::testUndoEdgeColor()
     QCOMPARE(editorData.mindMapData()->edgeColor(), QColor(2, 3, 4));
 }
 
+void EditorDataTest::testUndoEdgeDashedLine()
+{
+    const auto data = std::make_shared<MindMapData>();
+    EditorData editorData;
+    editorData.setMindMapData(data);
+
+    const auto node0 = std::make_shared<Node>();
+    data->graph().addNode(node0);
+    const auto node1 = std::make_shared<Node>();
+    data->graph().addNode(node1);
+
+    const auto edge01 = std::make_shared<Edge>(node0, node1);
+
+    editorData.addEdge(edge01);
+
+    edge01->setDashedLine(false);
+
+    editorData.saveUndoPoint();
+
+    edge01->setDashedLine(true);
+
+    editorData.undo();
+
+    const auto undoneEdge = editorData.mindMapData()->graph().getEdges().at(0);
+
+    QCOMPARE(undoneEdge->dashedLine(), false);
+
+    editorData.redo();
+
+    const auto redoneEdge = editorData.mindMapData()->graph().getEdges().at(0);
+
+    QCOMPARE(redoneEdge->dashedLine(), true);
+}
+
 void EditorDataTest::testUndoEdgeWidth()
 {
     EditorData editorData;
@@ -391,7 +557,7 @@ void EditorDataTest::testUndoEdgeText()
     const auto node1 = std::make_shared<Node>();
     data->graph().addNode(node1);
 
-    const auto edge01 = std::make_shared<Edge>(*node0, *node1);
+    const auto edge01 = std::make_shared<Edge>(node0, node1);
     editorData.addEdge(edge01);
 
     const auto text0 = "First";
@@ -426,7 +592,7 @@ void EditorDataTest::testUndoEdgeReversed()
     const auto node1 = std::make_shared<Node>();
     data->graph().addNode(node1);
 
-    const auto edge01 = std::make_shared<Edge>(*node0, *node1);
+    const auto edge01 = std::make_shared<Edge>(node0, node1);
 
     editorData.addEdge(edge01);
 
@@ -447,6 +613,93 @@ void EditorDataTest::testUndoEdgeReversed()
     const auto redoneEdge = editorData.mindMapData()->graph().getEdges().at(0);
 
     QCOMPARE(redoneEdge->reversed(), true);
+}
+
+void EditorDataTest::testUndoFontChange()
+{
+    EditorData editorData;
+
+    editorData.setMindMapData(std::make_shared<MindMapData>());
+    const auto font = editorData.mindMapData()->font();
+    editorData.saveUndoPoint();
+    QFont newFont("Foo");
+    editorData.mindMapData()->changeFont(newFont);
+
+    QCOMPARE(editorData.mindMapData()->font().family(), newFont.family());
+
+    editorData.undo();
+
+    QCOMPARE(editorData.mindMapData()->font().family(), font.family());
+
+    editorData.redo();
+
+    QCOMPARE(editorData.mindMapData()->font().family(), newFont.family());
+}
+
+void EditorDataTest::testUndoGroupConnection()
+{
+    EditorData editorData;
+    editorData.setMindMapData(std::make_shared<MindMapData>());
+
+    const auto node0 = editorData.addNodeAt(QPointF(0, 0));
+    const auto node1 = editorData.addNodeAt(QPointF(1, 1));
+    const auto node2 = editorData.addNodeAt(QPointF(2, 2));
+
+    editorData.toggleNodeInSelectionGroup(*node0);
+    editorData.toggleNodeInSelectionGroup(*node2);
+    editorData.toggleNodeInSelectionGroup(*node1);
+
+    editorData.saveUndoPoint();
+
+    const auto edges = editorData.connectSelectedNodes();
+
+    QCOMPARE(editorData.areSelectedNodesConnectable(), false);
+
+    editorData.undo();
+
+    const auto undoneNode0 = editorData.getNodeByIndex(node0->index());
+    const auto undoneNode1 = editorData.getNodeByIndex(node1->index());
+    const auto undoneNode2 = editorData.getNodeByIndex(node2->index());
+
+    editorData.toggleNodeInSelectionGroup(*undoneNode0);
+    editorData.toggleNodeInSelectionGroup(*undoneNode2);
+    editorData.toggleNodeInSelectionGroup(*undoneNode1);
+
+    QCOMPARE(editorData.areSelectedNodesConnectable(), true);
+}
+
+void EditorDataTest::testUndoGroupDisconnection()
+{
+    EditorData editorData;
+    editorData.setMindMapData(std::make_shared<MindMapData>());
+
+    const auto node0 = editorData.addNodeAt(QPointF(0, 0));
+    const auto node1 = editorData.addNodeAt(QPointF(1, 1));
+    const auto node2 = editorData.addNodeAt(QPointF(2, 2));
+
+    editorData.toggleNodeInSelectionGroup(*node0);
+    editorData.toggleNodeInSelectionGroup(*node2);
+    editorData.toggleNodeInSelectionGroup(*node1);
+
+    editorData.connectSelectedNodes();
+
+    editorData.saveUndoPoint();
+
+    editorData.disconnectSelectedNodes();
+
+    QCOMPARE(editorData.areSelectedNodesDisconnectable(), false);
+
+    editorData.undo();
+
+    const auto undoneNode0 = editorData.getNodeByIndex(node0->index());
+    const auto undoneNode1 = editorData.getNodeByIndex(node1->index());
+    const auto undoneNode2 = editorData.getNodeByIndex(node2->index());
+
+    editorData.toggleNodeInSelectionGroup(*undoneNode0);
+    editorData.toggleNodeInSelectionGroup(*undoneNode2);
+    editorData.toggleNodeInSelectionGroup(*undoneNode1);
+
+    QCOMPARE(editorData.areSelectedNodesDisconnectable(), true);
 }
 
 void EditorDataTest::testUndoNodeColor()
@@ -608,11 +861,10 @@ void EditorDataTest::testUndoState()
 
     const auto node0 = editorData.addNodeAt(QPointF(0, 0));
     const auto node1 = editorData.addNodeAt(QPointF(100, 0));
-    const auto edge01 = editorData.addEdge(std::make_shared<Edge>(*node0, *node1));
+    const auto edge01 = editorData.addEdge(std::make_shared<Edge>(node0, node1));
 
     editorData.toggleNodeInSelectionGroup(*node0);
     editorData.setSelectedEdge(edge01.get());
-    editorData.setSelectedNode(node0.get());
     editorData.saveUndoPoint();
 
     QCOMPARE(editorData.isUndoable(), true);
@@ -632,11 +884,10 @@ void EditorDataTest::testRedoState()
 
     const auto node0 = editorData.addNodeAt(QPointF(0, 0));
     const auto node1 = editorData.addNodeAt(QPointF(100, 0));
-    const auto edge01 = editorData.addEdge(std::make_shared<Edge>(*node0, *node1));
+    const auto edge01 = editorData.addEdge(std::make_shared<Edge>(node0, node1));
 
     editorData.toggleNodeInSelectionGroup(*node0);
     editorData.setSelectedEdge(edge01.get());
-    editorData.setSelectedNode(node0.get());
     editorData.saveUndoPoint();
 
     QCOMPARE(editorData.isUndoable(), true);
@@ -645,7 +896,6 @@ void EditorDataTest::testRedoState()
 
     editorData.toggleNodeInSelectionGroup(*node0);
     editorData.setSelectedEdge(edge01.get());
-    editorData.setSelectedNode(node0.get());
 
     editorData.redo();
 
@@ -653,6 +903,11 @@ void EditorDataTest::testRedoState()
     QCOMPARE(editorData.selectionGroupSize(), size_t(0));
     QCOMPARE(editorData.selectedEdge(), nullptr);
     QCOMPARE(editorData.selectedNode(), nullptr);
+
+    editorData.undo();
+    editorData.saveUndoPoint();
+
+    QCOMPARE(editorData.isRedoable(), false);
 }
 
 void EditorDataTest::testUndoStackResetOnNewDesign()

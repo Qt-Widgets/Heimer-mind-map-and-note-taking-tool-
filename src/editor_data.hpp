@@ -13,22 +13,27 @@
 // You should have received a copy of the GNU General Public License
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef EDITORDATA_HPP
-#define EDITORDATA_HPP
+#ifndef EDITOR_DATA_HPP
+#define EDITOR_DATA_HPP
 
 #include <memory>
 #include <set>
+#include <utility>
 #include <vector>
 
 #include <QObject>
 #include <QPointF>
 #include <QString>
+#include <QTimer>
 
+#include "copy_context.hpp"
 #include "edge.hpp"
 #include "file_exception.hpp"
+#include "grid.hpp"
 #include "mind_map_data.hpp"
 #include "mouse_action.hpp"
 #include "node.hpp"
+#include "types.hpp"
 #include "undo_stack.hpp"
 
 class Node;
@@ -44,21 +49,46 @@ class EditorData : public QObject
 public:
     EditorData();
 
-    ~EditorData();
+    ~EditorData() override;
 
-    EdgePtr addEdge(EdgePtr edge);
+    EdgeS addEdge(EdgeS edge);
 
-    void deleteEdge(Edge & edge);
+    void addNodeToSelectionGroup(NodeR node);
 
-    void deleteNode(Node & node);
+    //! \return true if at least one selected node pair can be connected.
+    bool areSelectedNodesConnectable() const;
 
-    NodePtr addNodeAt(QPointF pos);
+    //! \return true if at least one selected node pair can be disconnected.
+    bool areSelectedNodesDisconnectable() const;
 
-    void clearImages();
+    void deleteEdge(EdgeR edge);
+
+    void deleteEdge(int index0, int index1);
+
+    void deleteNode(NodeR node);
+
+    void deleteSelectedNodes();
+
+    NodeS addNodeAt(QPointF pos);
+
+    void clearCopyStack();
 
     void clearSelectionGroup();
 
-    NodePtr copyNodeAt(Node & source, QPointF pos);
+    //! Connects selected nodes in the order they were selected.
+    //! \return the new edge objects.
+    std::vector<EdgeS> connectSelectedNodes();
+
+    //! Disconnects (deletes edges) directly connected nodes in the group if possible.
+    void disconnectSelectedNodes();
+
+    CopyContext::CopiedData copiedData() const;
+
+    NodeS copyNodeAt(NodeCR source, QPointF pos);
+
+    void copySelectedNodes();
+
+    size_t copyStackSize() const;
 
     QColor backgroundColor() const;
 
@@ -66,9 +96,11 @@ public:
 
     QString fileName() const;
 
-    NodeBasePtr getNodeByIndex(int index);
+    NodeS getNodeByIndex(int index);
 
-    bool isInSelectionGroup(Node & node);
+    void initializeNewMindMap();
+
+    bool isInSelectionGroup(NodeR node);
 
     bool isUndoable() const;
 
@@ -80,49 +112,76 @@ public:
 
     MindMapDataPtr mindMapData();
 
-    void moveSelectionGroup(Node & reference, QPointF location);
+    void moveSelectionGroup(NodeR reference, QPointF location);
+
+    bool nodeHasImageAttached() const;
 
     void redo();
+
+    void removeImageRefsOfSelectedNodes();
 
     bool saveMindMap();
 
     bool saveMindMapAs(QString fileName);
 
-    void saveUndoPoint();
+    void saveUndoPoint(bool dontClearRedoStack = false);
 
     void saveRedoPoint();
 
+    void setColorForSelectedNodes(QColor color);
+
+    void setGridSize(int size, bool autoSnap);
+
     void setMindMapData(MindMapDataPtr newMindMapData);
 
-    void setSelectedEdge(Edge * edge);
+    void setSelectedEdge(EdgeP edge);
 
-    void setSelectedNode(Node * node);
+    void setSelectedNode(NodeP node);
 
-    Edge * selectedEdge() const;
+    void setImageRefForSelectedNodes(size_t id);
 
-    Node * selectedNode() const;
+    void setTextColorForSelectedNodes(QColor color);
+
+    EdgeP selectedEdge() const;
+
+    NodeP selectedNode() const;
 
     size_t selectionGroupSize() const;
 
-    void toggleNodeInSelectionGroup(Node & node);
+    void selectNodesByText(QString text);
+
+    void toggleNodeInSelectionGroup(NodeR node);
 
     void undo();
+
+    void unselectText();
 
 signals:
 
     void isModifiedChanged(bool isModified);
 
-    void sceneCleared();
-
     void undoEnabled(bool enable);
+
+    void redoEnabled(bool enable);
 
 private:
     EditorData(const EditorData & e) = delete;
     EditorData & operator=(const EditorData & e) = delete;
 
-    void clearScene();
+    void clearImages();
 
-    void removeNodesFromScene();
+    using NodePairVector = std::vector<std::pair<NodeP, NodeP>>;
+    NodePairVector getConnectableNodes() const;
+
+    NodePairVector getDisconnectableNodes() const;
+
+    void removeEdgeFromScene(EdgeR edge);
+
+    void removeNodeFromScene(NodeR node);
+
+    void requestAutosave();
+
+    void sendUndoAndRedoSignals();
 
     void setIsModified(bool isModified);
 
@@ -130,13 +189,15 @@ private:
 
     MindMapDataPtr m_mindMapData;
 
+    std::unique_ptr<CopyContext> m_copyContext;
+
     std::unique_ptr<SelectionGroup> m_selectionGroup;
 
     UndoStack m_undoStack;
 
-    Edge * m_selectedEdge = nullptr;
+    EdgeP m_selectedEdge = nullptr;
 
-    Node * m_dragAndDropNode = nullptr;
+    NodeP m_dragAndDropNode = nullptr;
 
     QPointF m_dragAndDropSourcePos;
 
@@ -149,6 +210,10 @@ private:
     bool m_isModified = false;
 
     QString m_fileName;
+
+    QTimer m_undoTimer;
+
+    Grid m_grid;
 };
 
-#endif // EDITORDATA_HPP
+#endif // EDITOR_DATA_HPP

@@ -15,22 +15,21 @@
 
 #include "magic_zoom.hpp"
 
-#include "editor_scene.hpp"
+#include "constants.hpp"
 #include "node.hpp"
+#include "types.hpp"
 
 #include <cmath>
 
-QRectF MagicZoom::calculateRectangle(const EditorScene & scene, bool isForExport)
+QRectF MagicZoom::calculateRectangle(const ItemList & items, bool isForExport)
 {
     double nodeArea = 0;
     QRectF rect;
-    int nodes = 0;
-    for (auto && item : scene.items()) {
-        if (auto node = dynamic_cast<Node *>(item)) {
+    for (auto && item : items) {
+        if (const auto node = dynamic_cast<NodeP>(item)) {
             const auto nodeRect = node->placementBoundingRect();
             rect = rect.united(nodeRect.translated(node->pos().x(), node->pos().y()));
             nodeArea += nodeRect.width() * nodeRect.height();
-            nodes++;
         }
     }
 
@@ -44,6 +43,7 @@ QRectF MagicZoom::calculateRectangle(const EditorScene & scene, bool isForExport
     // density and node count. For example, if we have just a single node we don't want it to
     // be super big and cover the whole screen.
     const double density = nodeArea / rect.width() / rect.height();
-    const double adjust = 3.0 * std::max(density * rect.width(), density * rect.height()) / pow(nodes, 1.5);
+    const int avgNodeCount = static_cast<int>(nodeArea / Constants::Node::MIN_WIDTH / Constants::Node::MIN_HEIGHT);
+    const double adjust = 3.0 * std::max(density * rect.width(), density * rect.height()) / pow(avgNodeCount, 1.5);
     return rect.adjusted(-adjust / 2, -adjust / 2, adjust / 2, adjust / 2).adjusted(-margin, -margin, margin, margin);
 }

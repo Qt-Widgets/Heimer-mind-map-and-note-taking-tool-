@@ -21,6 +21,7 @@
 #include <map>
 
 #include "image.hpp"
+#include "types.hpp"
 
 class Node;
 
@@ -39,7 +40,7 @@ public:
 
     std::pair<Image, bool> getImage(size_t id);
 
-    void handleImageRequest(size_t id, Node & node);
+    void handleImageRequest(size_t id, NodeR node);
 
     using ImageVector = std::vector<Image>;
     ImageVector images() const;

@@ -16,47 +16,52 @@
 #include "about_dlg.hpp"
 #include "constants.hpp"
 
+#include <QDialogButtonBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPixmap>
-#include <QPushButton>
+#include <QTextBrowser>
 #include <QVBoxLayout>
+
+namespace {
+const int logoSize = 256;
+}
 
 AboutDlg::AboutDlg(QWidget * parent)
   : QDialog(parent)
 {
     setWindowTitle(tr("About ") + Constants::Application::APPLICATION_NAME);
+    setMinimumWidth(3 * logoSize); // Note that there should be enough space for all languages
     initWidgets();
 }
 
 void AboutDlg::initWidgets()
 {
-    QVBoxLayout * vLayout = new QVBoxLayout(this);
-    QLabel * pixmapLabel = new QLabel(this);
+    const auto vLayout = new QVBoxLayout(this);
+    const auto pixmapLabel = new QLabel(this);
+    pixmapLabel->setPixmap(QPixmap(":/about.png").scaled(logoSize, logoSize));
 
-    pixmapLabel->setPixmap(QPixmap(":/about.png").scaled(512, 512));
-    vLayout->addWidget(pixmapLabel);
+    const auto hLayout = new QHBoxLayout;
+    hLayout->addWidget(pixmapLabel);
 
-    QLabel * infoLabel = new QLabel(this);
-    infoLabel->setText(
+    const auto infoLabel = new QTextBrowser(this);
+    infoLabel->setOpenExternalLinks(true);
+    infoLabel->setHtml(
       QString("<h2>") + Constants::Application::APPLICATION_NAME + " v" + Constants::Application::APPLICATION_VERSION + "</h2>"
-      + "<p>" + Constants::Application::APPLICATION_NAME + tr(" is licenced under ") + "GNU GPLv3."
-      + " " + Constants::Application::COPYRIGHT + ".</p>"
+      + "<p>" + Constants::Application::APPLICATION_NAME + tr(" is licenced under ") + "GNU GPLv3" + ".</p>"
+      + "<p>" + Constants::Application::COPYRIGHT + ".</p>"
+      + "<p>" + tr("Package type: ") + Constants::Application::APPLICATION_PACKAGE_TYPE + "</p>"
       + tr("Project website: ") + "<a href='" + Constants::Application::WEB_SITE_URL + "'>"
       + Constants::Application::WEB_SITE_URL + "</a>"
-      + "<p>" + tr("Support ") + Constants::Application::APPLICATION_NAME + tr(" on Patreon: ")
+      + "<p>" + tr("Support ") + Constants::Application::APPLICATION_NAME + tr(" via PayPal: ")
       + "<a href='" + Constants::Application::SUPPORT_SITE_URL + "'>"
       + Constants::Application::SUPPORT_SITE_URL + "</a></p>");
+    infoLabel->setFrameStyle(QFrame::NoFrame);
+    infoLabel->viewport()->setAutoFillBackground(false);
+    hLayout->addWidget(infoLabel);
+    vLayout->addLayout(hLayout);
 
-    vLayout->addWidget(infoLabel);
-
-    QHBoxLayout * buttonLayout = new QHBoxLayout();
-    QPushButton * button = new QPushButton("&Ok", this);
-
-    connect(button, SIGNAL(clicked()), this, SLOT(accept()));
-
-    buttonLayout->addWidget(button);
-    buttonLayout->insertStretch(0);
-
-    vLayout->addLayout(buttonLayout);
+    const auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok);
+    connect(buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    vLayout->addWidget(buttonBox);
 }

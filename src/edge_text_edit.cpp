@@ -18,13 +18,13 @@
 #include "constants.hpp"
 #include "edge.hpp"
 
-EdgeTextEdit::EdgeTextEdit(Edge * parentItem)
+EdgeTextEdit::EdgeTextEdit(EdgeP parentItem)
   : TextEdit(parentItem)
-  , m_sizeAnimation(this, "opacity")
+  , m_opacityAnimation(this, "opacity")
 {
     setAcceptHoverEvents(true);
 
-    m_sizeAnimation.setDuration(Constants::Edge::TEXT_EDIT_ANIMATION_DURATION);
+    m_opacityAnimation.setDuration(Constants::Edge::TEXT_EDIT_ANIMATION_DURATION);
 
     QGraphicsItem::setVisible(false);
     setOpacity(0);
@@ -32,16 +32,9 @@ EdgeTextEdit::EdgeTextEdit(Edge * parentItem)
     m_visibilityTimer.setSingleShot(true);
     m_visibilityTimer.setInterval(Constants::Edge::TEXT_EDIT_DURATION);
 
-    connect(&m_visibilityTimer, &QTimer::timeout, [=]() {
+    connect(&m_visibilityTimer, &QTimer::timeout, [=] {
         setVisible(false);
     });
-}
-
-void EdgeTextEdit::contextMenuEvent(QGraphicsSceneContextMenuEvent * event)
-{
-    // Prevents the system context menu from opening.
-
-    event->ignore();
 }
 
 void EdgeTextEdit::hoverEnterEvent(QGraphicsSceneHoverEvent * event)
@@ -60,18 +53,36 @@ void EdgeTextEdit::hoverLeaveEvent(QGraphicsSceneHoverEvent * event)
     TextEdit::hoverLeaveEvent(event);
 }
 
-void EdgeTextEdit::setVisible(bool visible)
+void EdgeTextEdit::setAnimationConfig(bool visible)
 {
     if (visible) {
         QGraphicsItem::setVisible(true);
-        m_sizeAnimation.setStartValue(opacity());
-        m_sizeAnimation.setEndValue(1.0);
-        m_sizeAnimation.stop();
-        m_sizeAnimation.start();
-    } else if (text().isEmpty()) {
-        m_sizeAnimation.setStartValue(opacity());
-        m_sizeAnimation.setEndValue(0.0);
-        m_sizeAnimation.stop();
-        m_sizeAnimation.start();
+        m_opacityAnimation.setStartValue(opacity());
+        m_opacityAnimation.setEndValue(1.0);
+        m_opacityAnimation.stop();
+        m_opacityAnimation.start();
+    } else {
+        m_opacityAnimation.setStartValue(opacity());
+        m_opacityAnimation.setEndValue(0.0);
+        m_opacityAnimation.stop();
+        m_opacityAnimation.start();
+    }
+}
+
+void EdgeTextEdit::setVisible(bool visible, VisibilityChangeReason vcr)
+{
+    switch (vcr) {
+    case VisibilityChangeReason::Default:
+        if (visible) {
+            setAnimationConfig(true);
+        } else if (text().isEmpty()) {
+            setAnimationConfig(false);
+        }
+        break;
+    case VisibilityChangeReason::AvailableSpaceChanged:
+        if (!text().isEmpty()) {
+            setAnimationConfig(visible);
+        }
+        break;
     }
 }

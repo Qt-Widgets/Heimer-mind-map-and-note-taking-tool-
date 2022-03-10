@@ -16,6 +16,7 @@
 #include "image_manager.hpp"
 #include "contrib/SimpleLogger/src/simple_logger.hpp"
 #include "node.hpp"
+#include <algorithm>
 
 ImageManager::ImageManager()
 {
@@ -23,7 +24,7 @@ ImageManager::ImageManager()
 
 void ImageManager::clear()
 {
-    juzzlin::L().info() << "Clearing ImageManager";
+    juzzlin::L().debug() << "Clearing ImageManager";
 
     m_images.clear();
     m_count = 0;
@@ -35,7 +36,7 @@ size_t ImageManager::addImage(const Image & image)
     m_images[id] = image;
     m_images[id].setId(id);
 
-    juzzlin::L().info() << "Adding new image, path=" << image.path() << ", id=" << id;
+    juzzlin::L().debug() << "Adding new image, path=" << image.path() << ", id=" << id;
 
     return id;
 }
@@ -49,7 +50,7 @@ void ImageManager::setImage(const Image & image)
     m_count = std::max(image.id(), m_count);
     m_images[image.id()] = image;
 
-    juzzlin::L().info() << "Setting image, path=" << image.path() << ", id=" << image.id();
+    juzzlin::L().debug() << "Setting image, path=" << image.path() << ", id=" << image.id();
 }
 
 std::pair<Image, bool> ImageManager::getImage(size_t id)
@@ -57,14 +58,13 @@ std::pair<Image, bool> ImageManager::getImage(size_t id)
     if (m_images.count(id)) {
         return { m_images[id], true };
     }
-    return { {}, false };
+    return {};
 }
 
-void ImageManager::handleImageRequest(size_t id, Node & node)
+void ImageManager::handleImageRequest(size_t id, NodeR node)
 {
-    const auto && imagePair = getImage(id);
-    if (imagePair.second) {
-        juzzlin::L().info() << "Applying image id=" << id << " to node " << node.index();
+    if (const auto && imagePair = getImage(id); imagePair.second) {
+        juzzlin::L().debug() << "Applying image id=" << id << " to node " << node.index();
         node.applyImage(imagePair.first);
     } else {
         juzzlin::L().warning() << "Cannot find image with id=" << id;
@@ -74,8 +74,7 @@ void ImageManager::handleImageRequest(size_t id, Node & node)
 ImageManager::ImageVector ImageManager::images() const
 {
     ImageVector images;
-    for (auto && image : m_images) {
-        images.push_back(image.second);
-    }
+    std::transform(std::begin(m_images), std::end(m_images), std::back_inserter(images),
+                   [](auto && image) { return image.second; });
     return images;
 }

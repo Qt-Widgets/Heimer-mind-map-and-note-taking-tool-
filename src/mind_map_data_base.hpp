@@ -13,10 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef MINDMAPDATABASE_HPP
-#define MINDMAPDATABASE_HPP
+#ifndef MIND_MAP_DATA_BASE_HPP
+#define MIND_MAP_DATA_BASE_HPP
 
 #include <QString>
+
+#include "types.hpp"
 
 class Graph;
 
@@ -93,9 +95,9 @@ public:
 
     virtual void setIndex(unsigned int index);
 
-    virtual Graph & graph() = 0;
+    virtual GraphR graph() = 0;
 
-    virtual const Graph & graph() const = 0;
+    virtual GraphCR graph() const = 0;
 
 private:
     QString m_name;
@@ -103,4 +105,4 @@ private:
     unsigned int m_index;
 };
 
-#endif // MINDMAPDATABASE_HPP
+#endif // MIND_MAP_DATA_BASE_HPP

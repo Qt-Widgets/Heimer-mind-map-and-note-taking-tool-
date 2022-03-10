@@ -13,12 +13,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef EDITORSCENE_HPP
-#define EDITORSCENE_HPP
+#ifndef EDITOR_SCENE_HPP
+#define EDITOR_SCENE_HPP
 
 #include <memory>
 
 #include <QGraphicsScene>
+
+#include "types.hpp"
 
 class Node;
 
@@ -27,20 +29,26 @@ class EditorScene : public QGraphicsScene
 public:
     EditorScene();
 
-    void initialize();
+    void adjustSceneRect();
 
-    QRectF zoomToFit(bool isForExport = false) const;
+    QRectF calculateZoomToFitRectangle(bool isForExport = false) const;
 
     //! Checks if the graphics scene already has the given edge item added
-    bool hasEdge(Node & node0, Node & node1);
+    bool hasEdge(NodeR node0, NodeR node1);
 
-    virtual ~EditorScene();
+    QImage toImage(QSize size, QColor backgroundColor, bool transparentBackground);
+
+    void toSvg(QString fileName, QString title);
+
+    virtual ~EditorScene() override;
 
 private:
+    bool containsAll() const;
+
     void removeItems();
 
     using ItemPtr = std::unique_ptr<QGraphicsItem>;
     std::vector<ItemPtr> m_ownItems;
 };
 
-#endif // EDITORSCENE_HPP
+#endif // EDITOR_SCENE_HPP

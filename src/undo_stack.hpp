@@ -13,40 +13,44 @@
 // You should have received a copy of the GNU General Public License
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef UNDOSTACK_HPP
-#define UNDOSTACK_HPP
+#ifndef UNDO_STACK_HPP
+#define UNDO_STACK_HPP
 
 #include "mind_map_data.hpp"
 
 #include <list>
+#include <memory>
 
 class UndoStack
 {
 public:
-    UndoStack(int maxHistorySize = -1);
+    //! \param maxHistorySize The size of undo stack or 0 for "unlimited".
+    UndoStack(size_t maxHistorySize = 0);
 
-    void pushUndoPoint(MindMapDataPtr mindMapData);
+    void pushUndoPoint(const MindMapData & mindMapData);
 
-    void pushRedoPoint(MindMapDataPtr mindMapData);
+    void pushRedoPoint(const MindMapData & mindMapData);
 
     void clear();
 
+    void clearRedoStack();
+
     bool isUndoable() const;
 
-    MindMapDataPtr undo();
+    std::unique_ptr<MindMapData> undo();
 
     bool isRedoable() const;
 
-    MindMapDataPtr redo();
+    std::unique_ptr<MindMapData> redo();
 
 private:
-    using MindMapDataVector = std::list<MindMapDataPtr>;
+    using MindMapDataVector = std::list<std::unique_ptr<MindMapData>>;
 
     MindMapDataVector m_undoStack;
 
     MindMapDataVector m_redoStack;
 
-    int m_maxHistorySize;
+    size_t m_maxHistorySize;
 };
 
-#endif // UNDOSTACK_HPP
+#endif // UNDO_STACK_HPP

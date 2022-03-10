@@ -14,68 +14,79 @@
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
 #include "application.hpp"
+#include "color_dialog.hpp"
 #include "constants.hpp"
 #include "editor_data.hpp"
 #include "editor_scene.hpp"
 #include "editor_view.hpp"
 #include "image_manager.hpp"
+#include "layout_optimization_dialog.hpp"
+#include "layout_optimizer.hpp"
 #include "main_window.hpp"
 #include "mediator.hpp"
+#include "node_action.hpp"
 #include "png_export_dialog.hpp"
+#include "recent_files_manager.hpp"
+#include "settings.hpp"
 #include "state_machine.hpp"
+#include "svg_export_dialog.hpp"
 #include "user_exception.hpp"
 
+#include "argengine.hpp"
 #include "simple_logger.hpp"
 
-#include <QColorDialog>
 #include <QFileDialog>
 #include <QLibraryInfo>
 #include <QLocale>
 #include <QMessageBox>
 #include <QObject>
-#include <QSettings>
 #include <QStandardPaths>
 
 #include <iostream>
 
 namespace {
 
+using juzzlin::Argengine;
 using juzzlin::L;
 
-static void printHelp()
-{
-    std::cout << std::endl
-              << "Heimer version " << VERSION << std::endl;
-    std::cout << Constants::Application::COPYRIGHT << std::endl
-              << std::endl;
-    std::cout << "Usage: heimer [options] [mindMapFile]" << std::endl
-              << std::endl;
-    std::cout << "Options:" << std::endl;
-    std::cout << "--help        Show this help." << std::endl;
-    std::cout << "--lang [lang] Force language: fi, fr, it." << std::endl;
-    std::cout << std::endl;
-}
-
+// Forces the language to the given one or chooses the best UI language
 static void initTranslations(QTranslator & appTranslator, QTranslator & qtTranslator, QGuiApplication & app, QString lang = "")
 {
+    // See https://doc.qt.io/qt-5/qtranslator.html#load-1
+    QStringList langs;
     if (lang.isEmpty()) {
-        lang = QLocale::system().name();
+        langs = QLocale().uiLanguages();
+    } else {
+        langs << lang;
+        L().info() << "Language forced to '" << lang.toStdString() << "'";
     }
 
     // Qt's built-in translations
-    if (qtTranslator.load("qt_" + lang, QLibraryInfo::location(QLibraryInfo::TranslationsPath))) {
-        app.installTranslator(&qtTranslator);
-        L().info() << "Loaded Qt translations for " << lang.toStdString();
-    } else {
-        L().warning() << "Failed to load Qt translations for " << lang.toStdString();
+    for (auto && lang : langs) {
+        L().info() << "Trying Qt translations for '" << lang.toStdString() << "'";
+#if QT_VERSION >= 0x60000
+        if (qtTranslator.load("qt_" + lang, QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
+#else
+        if (qtTranslator.load("qt_" + lang, QLibraryInfo::location(QLibraryInfo::TranslationsPath))) {
+#endif
+            app.installTranslator(&qtTranslator);
+            L().info() << "Loaded Qt translations for '" << lang.toStdString() << "'";
+            break;
+        } else {
+            L().warning() << "Failed to load Qt translations for '" << lang.toStdString() << "'";
+        }
     }
 
     // Application's translations
-    if (appTranslator.load(Constants::Application::TRANSLATIONS_RESOURCE_BASE + lang)) {
-        app.installTranslator(&appTranslator);
-        L().info() << "Loaded application translations for " << lang.toStdString();
-    } else {
-        L().warning() << "Failed to load application translations for " << lang.toStdString();
+    for (auto && lang : langs) {
+        L().info() << "Trying application translations for '" << lang.toStdString() << "'";
+        if (appTranslator.load(Constants::Application::TRANSLATIONS_RESOURCE_BASE + lang)) {
+            app.installTranslator(&appTranslator);
+            L().info() << "Loaded application translations for '" << lang.toStdString() << "'";
+            break;
+        } else {
+            L().warning() << "Failed to load application translations for '" << lang.toStdString() << "'";
+        }
     }
 }
 
@@ -83,23 +94,45 @@ static void initTranslations(QTranslator & appTranslator, QTranslator & qtTransl
 
 void Application::parseArgs(int argc, char ** argv)
 {
-    const std::vector<QString> args(argv, argv + argc);
-    for (unsigned int i = 1; i < args.size(); i++) {
-        if (args[i] == "-h" || args[i] == "--help") {
-            printHelp();
-            throw UserException("Exit due to help.");
-        } else if (args[i] == "--lang" && (i + i) < args.size()) {
-            m_lang = args[i + 1];
-            i++;
-        } else {
-            m_mindMapFile = args[i];
-        }
+    Argengine ae(argc, argv);
+
+    const std::set<std::string> languages = { "de", "en", "es", "fi", "fr", "it", "nl", "zh" };
+    std::string languageHelp;
+    for (auto && lang : languages) {
+        languageHelp += lang + ", ";
     }
+    languageHelp.pop_back();
+    languageHelp.pop_back();
+    languageHelp += ".";
+
+    ae.addOption(
+      { "-d", "--debug" }, [] {
+          L::setLoggingLevel(L::Level::Debug);
+      },
+      false, "Show debug logging.");
+
+    ae.addOption(
+      { "--lang" }, [this, languages](std::string value) {
+          if (!languages.count(value)) {
+              L().error() << "Unsupported language: " << value;
+          } else {
+              m_lang = value.c_str();
+          }
+      },
+      false, "Force language: " + languageHelp);
+
+    ae.setPositionalArgumentCallback([=](Argengine::ArgumentVector args) {
+        m_mindMapFile = args.at(0).c_str();
+    });
+
+    ae.setHelpText(std::string("\nUsage: ") + argv[0] + " [OPTIONS] [MIND_MAP_FILE]");
+
+    ae.parse();
 }
 
 Application::Application(int & argc, char ** argv)
   : m_app(argc, argv)
-  , m_stateMachine(new StateMachine)
+  , m_stateMachine(std::make_unique<StateMachine>())
 {
     parseArgs(argc, argv);
 
@@ -107,45 +140,50 @@ Application::Application(int & argc, char ** argv)
 
     // Instantiate components here because the possible language given
     // in the command line must have been loaded before this
-    m_mainWindow.reset(new MainWindow);
-    m_mediator.reset(new Mediator(*m_mainWindow));
-    m_editorData.reset(new EditorData);
-    m_editorScene.reset(new EditorScene);
+    m_mainWindow = std::make_unique<MainWindow>();
+    m_mediator = std::make_unique<Mediator>(*m_mainWindow);
+    m_editorData = std::make_unique<EditorData>();
     m_editorView = new EditorView(*m_mediator);
-    m_pngExportDialog.reset(new PngExportDialog(*m_mainWindow));
+    m_pngExportDialog = std::make_unique<PngExportDialog>(*m_mainWindow);
+    m_svgExportDialog = std::make_unique<SvgExportDialog>(*m_mainWindow);
 
     m_mainWindow->setMediator(m_mediator);
     m_stateMachine->setMediator(m_mediator);
 
     m_mediator->setEditorData(m_editorData);
-    m_mediator->setEditorScene(m_editorScene);
     m_mediator->setEditorView(*m_editorView);
 
     // Connect views and StateMachine together
     connect(this, &Application::actionTriggered, m_stateMachine.get(), &StateMachine::calculateState);
-    connect(m_editorView, &EditorView::actionTriggered, [this](StateMachine::Action action, Node * node) {
-        m_actionNode = node;
+    connect(m_editorView, &EditorView::actionTriggered, [this](StateMachine::Action action) {
         m_stateMachine->calculateState(action);
     });
     connect(m_mainWindow.get(), &MainWindow::actionTriggered, m_stateMachine.get(), &StateMachine::calculateState);
     connect(m_stateMachine.get(), &StateMachine::stateChanged, this, &Application::runState);
 
     connect(m_editorData.get(), &EditorData::isModifiedChanged, [=](bool isModified) {
-        m_mainWindow->enableSave(isModified && m_mediator->canBeSaved());
+        m_mainWindow->enableSave(isModified || m_mediator->canBeSaved());
     });
 
-    connect(m_pngExportDialog.get(), &PngExportDialog::pngExportRequested, m_mediator.get(), &Mediator::exportToPNG);
+    connect(m_pngExportDialog.get(), &PngExportDialog::pngExportRequested, m_mediator.get(), &Mediator::exportToPng);
+    connect(m_svgExportDialog.get(), &SvgExportDialog::svgExportRequested, m_mediator.get(), &Mediator::exportToSvg);
 
-    connect(m_mediator.get(), &Mediator::exportFinished, m_pngExportDialog.get(), &PngExportDialog::finishExport);
+    connect(m_mediator.get(), &Mediator::pngExportFinished, m_pngExportDialog.get(), &PngExportDialog::finishExport);
+    connect(m_mediator.get(), &Mediator::svgExportFinished, m_svgExportDialog.get(), &SvgExportDialog::finishExport);
+
     connect(m_mainWindow.get(), &MainWindow::cornerRadiusChanged, m_mediator.get(), &Mediator::setCornerRadius);
     connect(m_mainWindow.get(), &MainWindow::edgeWidthChanged, m_mediator.get(), &Mediator::setEdgeWidth);
+    connect(m_mainWindow.get(), &MainWindow::fontChanged, m_mediator.get(), &Mediator::changeFont);
     connect(m_mainWindow.get(), &MainWindow::textSizeChanged, m_mediator.get(), &Mediator::setTextSize);
-    connect(m_mainWindow.get(), &MainWindow::gridSizeChanged, m_editorView, &EditorView::setGridSize);
+    connect(m_mainWindow.get(), &MainWindow::gridSizeChanged, m_mediator.get(), &Mediator::setGridSize);
+    connect(m_mainWindow.get(), &MainWindow::gridVisibleChanged, [this](int state) {
+        bool visible = state == Qt::Checked;
+        m_editorView->setGridVisible(visible);
+    });
+    connect(m_mainWindow.get(), &MainWindow::searchTextChanged, m_mediator.get(), &Mediator::setSearchText);
 
     m_mainWindow->initialize();
-    m_mediator->initializeView();
-
-    m_mainWindow->show();
+    m_mainWindow->appear();
 
     if (!m_mindMapFile.isEmpty()) {
         QTimer::singleShot(0, this, &Application::openArgMindMap);
@@ -180,7 +218,13 @@ void Application::runState(StateMachine::State state)
     case StateMachine::State::InitializeNewMindMap:
         m_mediator->initializeNewMindMap();
         break;
-    case StateMachine::State::SaveMindMap:
+    case StateMachine::State::OpenRecent:
+        doOpenMindMap(RecentFilesManager::instance().selectedFile());
+        break;
+    case StateMachine::State::OpenDrop:
+        doOpenMindMap(m_editorView->dropFile());
+        break;
+    case StateMachine::State::Save:
         saveMindMap();
         break;
     case StateMachine::State::ShowBackgroundColorDialog:
@@ -189,11 +233,23 @@ void Application::runState(StateMachine::State state)
     case StateMachine::State::ShowEdgeColorDialog:
         showEdgeColorDialog();
         break;
+    case StateMachine::State::ShowGridColorDialog:
+        showGridColorDialog();
+        break;
+    case StateMachine::State::ShowNodeColorDialog:
+        showNodeColorDialog();
+        break;
+    case StateMachine::State::ShowTextColorDialog:
+        showTextColorDialog();
+        break;
     case StateMachine::State::ShowImageFileDialog:
         showImageFileDialog();
         break;
     case StateMachine::State::ShowPngExportDialog:
         showPngExportDialog();
+        break;
+    case StateMachine::State::ShowLayoutOptimizationDialog:
+        showLayoutOptimizationDialog();
         break;
     case StateMachine::State::ShowNotSavedDialog:
         switch (showNotSavedDialog()) {
@@ -211,6 +267,9 @@ void Application::runState(StateMachine::State state)
     case StateMachine::State::ShowSaveAsDialog:
         saveMindMapAs();
         break;
+    case StateMachine::State::ShowSvgExportDialog:
+        showSvgExportDialog();
+        break;
     case StateMachine::State::ShowOpenDialog:
         openMindMap();
         break;
@@ -226,10 +285,11 @@ void Application::openMindMap()
 {
     L().debug() << "Open file";
 
-    const auto path = loadRecentPath();
-    const auto fileName = QFileDialog::getOpenFileName(m_mainWindow.get(), tr("Open File"), path, getFileDialogFileText());
-    if (!fileName.isEmpty()) {
+    const auto path = Settings::loadRecentPath();
+    if (const auto fileName = QFileDialog::getOpenFileName(m_mainWindow.get(), tr("Open File"), path, getFileDialogFileText()); !fileName.isEmpty()) {
         doOpenMindMap(fileName);
+    } else {
+        emit actionTriggered(StateMachine::Action::OpeningMindMapCanceled);
     }
 }
 
@@ -239,11 +299,8 @@ void Application::doOpenMindMap(QString fileName)
 
     if (m_mediator->openMindMap(fileName)) {
         m_mainWindow->disableUndoAndRedo();
-
-        saveRecentPath(fileName);
-
         m_mainWindow->setSaveActionStatesOnOpenedMindMap();
-
+        Settings::saveRecentPath(fileName);
         emit actionTriggered(StateMachine::Action::MindMapOpened);
     } else {
         emit actionTriggered(StateMachine::Action::OpeningMindMapFailed);
@@ -273,10 +330,11 @@ void Application::saveMindMapAs()
     QString fileName = QFileDialog::getSaveFileName(
       m_mainWindow.get(),
       tr("Save File As"),
-      QStandardPaths::writableLocation(QStandardPaths::HomeLocation),
+      Settings::loadRecentPath(),
       getFileDialogFileText());
 
     if (fileName.isEmpty()) {
+        emit actionTriggered(StateMachine::Action::MindMapSaveAsCanceled);
         return;
     }
 
@@ -287,6 +345,8 @@ void Application::saveMindMapAs()
     if (m_mediator->saveMindMapAs(fileName)) {
         const auto msg = QString(tr("File '")) + fileName + tr("' saved.");
         L().debug() << msg.toStdString();
+        m_mainWindow->enableSave(false);
+        Settings::saveRecentPath(fileName);
         emit actionTriggered(StateMachine::Action::MindMapSavedAs);
     } else {
         const auto msg = QString(tr("Failed to save file as '") + fileName + "'.");
@@ -296,75 +356,46 @@ void Application::saveMindMapAs()
     }
 }
 
-QString Application::loadRecentPath() const
-{
-    QSettings settings;
-    settings.beginGroup(m_settingsGroup);
-    const auto path = settings.value("recentPath", QStandardPaths::writableLocation(QStandardPaths::HomeLocation)).toString();
-    settings.endGroup();
-    return path;
-}
-
-void Application::saveRecentPath(QString path)
-{
-    QSettings settings;
-    settings.beginGroup(m_settingsGroup);
-    settings.setValue("recentPath", path);
-    settings.endGroup();
-}
-
-QString Application::loadRecentImagePath() const
-{
-    QSettings settings;
-    settings.beginGroup(m_settingsGroup);
-    const QString path = settings.value("recentImagePath", QStandardPaths::writableLocation(QStandardPaths::HomeLocation)).toString();
-    settings.endGroup();
-    return path;
-}
-
-void Application::saveRecentImagePath(QString path)
-{
-    QSettings settings;
-    settings.beginGroup(m_settingsGroup);
-    settings.setValue("recentImagePath", path);
-    settings.endGroup();
-}
-
 void Application::showBackgroundColorDialog()
 {
-    const auto color = QColorDialog::getColor(Qt::white, m_mainWindow.get());
-    if (color.isValid()) {
-        m_mediator->setBackgroundColor(color);
-    }
+    ColorDialog(ColorDialog::Role::Background, m_mediator).exec();
     emit actionTriggered(StateMachine::Action::BackgroundColorChanged);
 }
 
 void Application::showEdgeColorDialog()
 {
-    const auto color = QColorDialog::getColor(Qt::white, m_mainWindow.get());
-    if (color.isValid()) {
-        m_mediator->setEdgeColor(color);
-    }
+    ColorDialog(ColorDialog::Role::Edge, m_mediator).exec();
     emit actionTriggered(StateMachine::Action::EdgeColorChanged);
+}
+
+void Application::showGridColorDialog()
+{
+    ColorDialog(ColorDialog::Role::Grid, m_mediator).exec();
+    emit actionTriggered(StateMachine::Action::GridColorChanged);
+}
+
+void Application::showNodeColorDialog()
+{
+    ColorDialog(ColorDialog::Role::Node, m_mediator).exec();
+    emit actionTriggered(StateMachine::Action::NodeColorChanged);
+}
+
+void Application::showTextColorDialog()
+{
+    ColorDialog(ColorDialog::Role::Text, m_mediator).exec();
+    emit actionTriggered(StateMachine::Action::TextColorChanged);
 }
 
 void Application::showImageFileDialog()
 {
-    const auto path = loadRecentImagePath();
+    const auto path = Settings::loadRecentImagePath();
     const auto extensions = "(*.jpg *.jpeg *.JPG *.JPEG *.png *.PNG)";
     const auto fileName = QFileDialog::getOpenFileName(
       m_mainWindow.get(), tr("Open an image"), path, tr("Image Files") + " " + extensions);
 
-    QImage qImage;
-    if (qImage.load(fileName)) {
-        const Image image { qImage, fileName.toStdString() };
-        const auto id = m_editorData->mindMapData()->imageManager().addImage(image);
-        if (m_actionNode) {
-            juzzlin::L().info() << "Setting image id=" << id << " to node " << m_actionNode->index();
-            m_mediator->saveUndoPoint();
-            m_actionNode->setImageRef(id);
-            m_actionNode = nullptr;
-        }
+    if (QImage image; image.load(fileName)) {
+        m_mediator->performNodeAction({ NodeAction::Type::AttachImage, image, fileName });
+        Settings::saveRecentImagePath(fileName);
     } else if (fileName != "") {
         QMessageBox::critical(m_mainWindow.get(), tr("Load image"), tr("Failed to load image '") + fileName + "'");
     }
@@ -372,11 +403,32 @@ void Application::showImageFileDialog()
 
 void Application::showPngExportDialog()
 {
-    m_pngExportDialog->setImageSize(m_mediator->zoomForExport());
+    m_pngExportDialog->setImageSize(m_mediator->zoomForExport(true));
     m_pngExportDialog->exec();
 
     // Doesn't matter if canceled or not
     emit actionTriggered(StateMachine::Action::PngExported);
+}
+
+void Application::showSvgExportDialog()
+{
+    m_svgExportDialog->exec();
+
+    // Doesn't matter if canceled or not
+    emit actionTriggered(StateMachine::Action::SvgExported);
+}
+
+void Application::showLayoutOptimizationDialog()
+{
+    LayoutOptimizer layoutOptimizer { m_mediator->mindMapData(), m_editorView->grid() };
+    LayoutOptimizationDialog dialog { *m_mainWindow, *m_mediator->mindMapData(), layoutOptimizer };
+    connect(&dialog, &LayoutOptimizationDialog::undoPointRequested, m_mediator.get(), &Mediator::saveUndoPoint);
+
+    if (dialog.exec() == QDialog::Accepted) {
+        m_mediator->zoomToFit();
+    }
+
+    emit actionTriggered(StateMachine::Action::LayoutOptimized);
 }
 
 void Application::showMessageBox(QString message)

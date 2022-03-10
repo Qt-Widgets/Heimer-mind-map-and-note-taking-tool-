@@ -13,6 +13,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
+#ifndef SERIALIZER_TEST_HPP
+#define SERIALIZER_TEST_HPP
+
 #include <QTest>
 
 class SerializerTest : public QObject
@@ -34,6 +37,30 @@ private slots:
 
     void testEdgeWidth();
 
+    void testFontItalic();
+
+    void testFontNonItalic();
+
+    void testFontBold();
+
+    void testFontNonBold();
+
+    void testFontOverline();
+
+    void testFontNonOverline();
+
+    void testFontStrikeOut();
+
+    void testFontNonStrikeOut();
+
+    void testFontUnderline();
+
+    void testFontNonUnderline();
+
+    void testGridColor();
+
+    void testLayoutOptimizer();
+
     void testNotUsedImages();
 
     void testNodeDeletion();
@@ -46,3 +73,5 @@ private slots:
 
     void testUsedImages();
 };
+
+#endif // SERIALIZER_TEST_HPP

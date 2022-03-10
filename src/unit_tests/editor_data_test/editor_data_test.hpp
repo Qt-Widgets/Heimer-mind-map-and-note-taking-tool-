@@ -13,6 +13,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
+#ifndef EDITOR_DATA_TEST_HPP
+#define EDITOR_DATA_TEST_HPP
+
 #include <QTest>
 
 class EditorDataTest : public QObject
@@ -23,6 +26,14 @@ public:
     EditorDataTest();
 
 private slots:
+
+    void testAddAndDeleteEdge();
+
+    void testGroupConnection();
+
+    void testGroupDisconnection();
+
+    void testGroupDelete();
 
     void testGroupMove();
 
@@ -36,6 +47,8 @@ private slots:
 
     void testRedoState();
 
+    void testTextSearch();
+
     void testUndoAddEdge();
 
     void testUndoArrowMode();
@@ -48,11 +61,19 @@ private slots:
 
     void testUndoEdgeColor();
 
+    void testUndoEdgeDashedLine();
+
     void testUndoEdgeWidth();
 
     void testUndoEdgeText();
 
     void testUndoEdgeReversed();
+
+    void testUndoFontChange();
+
+    void testUndoGroupConnection();
+
+    void testUndoGroupDisconnection();
 
     void testUndoNodeColor();
 
@@ -74,3 +95,5 @@ private slots:
 
     void testUndoModificationFlagOnLoadDesign();
 };
+
+#endif // EDITOR_DATA_TEST_HPP

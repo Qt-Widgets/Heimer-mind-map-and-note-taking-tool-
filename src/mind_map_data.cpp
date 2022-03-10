@@ -15,6 +15,7 @@
 
 #include "mind_map_data.hpp"
 
+#include "grid.hpp"
 #include "node.hpp"
 
 #include <memory>
@@ -32,7 +33,9 @@ MindMapData::MindMapData(const MindMapData & other)
   , m_version(other.m_version)
   , m_backgroundColor(other.m_backgroundColor)
   , m_edgeColor(other.m_edgeColor)
+  , m_gridColor(other.m_gridColor)
   , m_edgeWidth(other.m_edgeWidth)
+  , m_font(other.m_font)
   , m_textSize(other.m_textSize)
   , m_cornerRadius(other.m_cornerRadius)
 {
@@ -44,21 +47,31 @@ void MindMapData::copyGraph(const MindMapData & other)
     m_graph.clear();
 
     // Use copy constructor for nodes
-    for (auto && nodeBase : other.m_graph.getNodes()) {
-        m_graph.addNode(std::make_shared<Node>(*std::dynamic_pointer_cast<Node>(nodeBase)));
+    for (auto && node : other.m_graph.getNodes()) {
+        m_graph.addNode(std::make_unique<Node>(*node));
     }
 
-    // Create new edges
-    for (auto && edgeBase : other.m_graph.getEdges()) {
-        auto sourceNode = std::dynamic_pointer_cast<Node>(m_graph.getNode(edgeBase->sourceNodeBase().index()));
-        auto targetNode = std::dynamic_pointer_cast<Node>(m_graph.getNode(edgeBase->targetNodeBase().index()));
-
-        auto edge = std::make_shared<Edge>(*sourceNode, *targetNode);
-        edge->setArrowMode(edgeBase->arrowMode());
-        edge->setText(edgeBase->text());
-        edge->setReversed(edgeBase->reversed());
-        m_graph.addEdge(edge);
+    // Use copy constructor for edges
+    for (auto && otherEdge : other.m_graph.getEdges()) {
+        m_graph.addEdge(std::make_unique<Edge>(*otherEdge, m_graph));
     }
+}
+
+void MindMapData::applyGrid(const Grid & grid)
+{
+    for (auto && node : m_graph.getNodes()) {
+        node->setLocation(grid.snapToGrid(node->location()));
+    }
+}
+
+double MindMapData::aspectRatio() const
+{
+    return m_aspectRatio;
+}
+
+void MindMapData::setAspectRatio(double aspectRatio)
+{
+    m_aspectRatio = aspectRatio;
 }
 
 QColor MindMapData::backgroundColor() const
@@ -99,6 +112,16 @@ void MindMapData::setEdgeColor(const QColor & edgeColor)
     }
 }
 
+QColor MindMapData::gridColor() const
+{
+    return m_gridColor;
+}
+
+void MindMapData::setGridColor(const QColor & gridColor)
+{
+    m_gridColor = gridColor;
+}
+
 double MindMapData::edgeWidth() const
 {
     return m_edgeWidth;
@@ -123,12 +146,12 @@ void MindMapData::setFileName(QString newFileName)
     m_fileName = newFileName;
 }
 
-Graph & MindMapData::graph()
+GraphR MindMapData::graph()
 {
     return m_graph;
 }
 
-const Graph & MindMapData::graph() const
+GraphCR MindMapData::graph() const
 {
     return m_graph;
 }
@@ -141,6 +164,34 @@ ImageManager & MindMapData::imageManager()
 const ImageManager & MindMapData::imageManager() const
 {
     return m_imageManager;
+}
+
+double MindMapData::minEdgeLength() const
+{
+    return m_minEdgeLength;
+}
+
+void MindMapData::setMinEdgeLength(double minEdgeLength)
+{
+    m_minEdgeLength = minEdgeLength;
+}
+
+QFont MindMapData::font() const
+{
+    return m_font;
+}
+
+void MindMapData::changeFont(QFont font)
+{
+    m_font = font;
+
+    for (auto && edge : m_graph.getEdges()) {
+        edge->changeFont(font);
+    }
+
+    for (auto && node : m_graph.getNodes()) {
+        node->changeFont(font);
+    }
 }
 
 int MindMapData::textSize() const
@@ -171,6 +222,4 @@ void MindMapData::setVersion(const QString & version)
     m_version = version;
 }
 
-MindMapData::~MindMapData()
-{
-}
+MindMapData::~MindMapData() = default;

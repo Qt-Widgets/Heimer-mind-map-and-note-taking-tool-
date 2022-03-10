@@ -13,12 +13,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef PNGEXPORTDIALOG_HPP
-#define PNGEXPORTDIALOG_HPP
+#ifndef PNG_EXPORT_DIALOG_HPP
+#define PNG_EXPORT_DIALOG_HPP
 
 #include <QDialog>
 
 class QCheckBox;
+class QDialogButtonBox;
 class QLineEdit;
 class QProgressBar;
 class QPushButton;
@@ -59,9 +60,7 @@ private:
 
     QPushButton * m_filenameButton = nullptr;
 
-    QPushButton * m_cancelButton = nullptr;
-
-    QPushButton * m_exportButton = nullptr;
+    QDialogButtonBox * m_buttonBox = nullptr;
 
     QProgressBar * m_progressBar = nullptr;
 
@@ -74,4 +73,4 @@ private:
     float m_aspectRatio = 1.0;
 };
 
-#endif // PNGEEXPORTDIALOG_HPP
+#endif // PNG_EXPORT_DIALOG_HPP

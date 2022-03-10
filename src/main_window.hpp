@@ -13,30 +13,36 @@
 // You should have received a copy of the GNU General Public License
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef MAINWINDOW_HPP
-#define MAINWINDOW_HPP
+#ifndef MAIN_WINDOW_HPP
+#define MAIN_WINDOW_HPP
 
 #include <QCloseEvent>
 #include <QGraphicsScene>
 #include <QMainWindow>
 #include <QString>
+#include <QTimer>
 
 #include "state_machine.hpp"
 
+#include <map>
 #include <memory>
 
 class AboutDlg;
+class SettingsDialog;
 class EditorData;
 class EditorView;
+class Mediator;
+class Node;
 class QAction;
 class QCheckBox;
-class QDoubleSpinBox;
+class QFont;
+class QLineEdit;
 class QSlider;
 class QSpinBox;
 class QTextEdit;
 class QWidgetAction;
-class Mediator;
-class Node;
+class ToolBar;
+class WhatsNewDlg;
 
 class MainWindow : public QMainWindow
 {
@@ -49,7 +55,17 @@ public:
 
     static MainWindow * instance();
 
+    void appear();
+
+    bool copyOnDragEnabled() const;
+
     void disableUndoAndRedo();
+
+    void enableConnectSelectedNodesAction(bool enable);
+
+    void enableDisconnectSelectedNodesAction(bool enable);
+
+    void enableWidgetSignals(bool enable);
 
     void initialize();
 
@@ -67,11 +83,13 @@ public:
 
 public slots:
 
+    void changeFont(const QFont & font);
+
     void enableUndo(bool enable);
 
-    void enableSave(bool enable);
+    void enableRedo(bool enable);
 
-    void enableSaveAs(bool enable);
+    void enableSave(bool enable);
 
     void setCornerRadius(int value);
 
@@ -92,7 +110,13 @@ signals:
 
     void edgeWidthChanged(double width);
 
-    void gridSizeChanged(int size);
+    void fontChanged(const QFont & font);
+
+    void gridSizeChanged(int size, bool autoSnap);
+
+    void gridVisibleChanged(int state);
+
+    void searchTextChanged(QString text);
 
     void textSizeChanged(int value);
 
@@ -102,40 +126,44 @@ signals:
 
     void zoomToFitTriggered();
 
-private slots:
-
-    void setupMindMapAfterUndoOrRedo();
-
-    void showAboutDlg();
-
-    void showAboutQtDlg();
-
 private:
+    void addConnectSelectedNodesAction(QMenu & menu);
+
+    void addDisconnectSelectedNodesAction(QMenu & menu);
+
     void addRedoAction(QMenu & menu);
 
     void addUndoAction(QMenu & menu);
 
-    QWidgetAction * createCornerRadiusAction();
-
-    QWidgetAction * createEdgeWidthAction();
-
-    QWidgetAction * createGridSizeAction();
-
-    QWidgetAction * createTextSizeAction();
+    std::pair<QSize, QSize> calculateDefaultWindowSize() const;
 
     void createEditMenu();
+
+    void createExportSubMenu(QMenu & fileMenu);
 
     void createFileMenu();
 
     void createHelpMenu();
 
-    void createToolBar();
+    void connectToolBar();
 
     void createViewMenu();
 
     void populateMenuBar();
 
     AboutDlg * m_aboutDlg;
+
+    SettingsDialog * m_settingsDlg;
+
+    ToolBar * m_toolBar;
+
+    WhatsNewDlg * m_whatsNewDlg;
+
+    QAction * m_connectSelectedNodesAction = nullptr;
+
+    QAction * m_disconnectSelectedNodesAction = nullptr;
+
+    QAction * m_fullScreenAction = nullptr;
 
     QAction * m_saveAction = nullptr;
 
@@ -145,25 +173,13 @@ private:
 
     QAction * m_redoAction = nullptr;
 
-    QDoubleSpinBox * m_edgeWidthSpinBox = nullptr;
-
-    QSpinBox * m_cornerRadiusSpinBox = nullptr;
-
-    QSpinBox * m_gridSizeSpinBox = nullptr;
-
-    QSpinBox * m_textSizeSpinBox = nullptr;
-
     QString m_argMindMapFile;
 
     std::shared_ptr<Mediator> m_mediator;
 
-    const char * m_settingsGroup = "MainWindow";
-
     bool m_closeNow = false;
-
-    QSize m_sizeBeforeFullScreen;
 
     static MainWindow * m_instance;
 };
 
-#endif // MAINWINDOW_HPP
+#endif // MAIN_WINDOW_HPP

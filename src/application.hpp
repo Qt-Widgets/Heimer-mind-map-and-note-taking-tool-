@@ -26,13 +26,13 @@
 #include <memory>
 
 class EditorData;
-class EditorScene;
 class EditorView;
 class ImageManager;
 class MainWindow;
 class Mediator;
 class Node;
 class PngExportDialog;
+class SvgExportDialog;
 
 class Application : public QObject
 {
@@ -60,10 +60,6 @@ private:
 
     QString getFileDialogFileText() const;
 
-    QString loadRecentImagePath() const;
-
-    QString loadRecentPath() const;
-
     void openArgMindMap();
 
     void openMindMap();
@@ -72,17 +68,23 @@ private:
 
     void saveMindMapAs();
 
-    void saveRecentImagePath(QString fileName);
-
-    void saveRecentPath(QString fileName);
-
     void showBackgroundColorDialog();
 
     void showEdgeColorDialog();
 
+    void showGridColorDialog();
+
     void showImageFileDialog();
 
+    void showLayoutOptimizationDialog();
+
+    void showNodeColorDialog();
+
     void showPngExportDialog();
+
+    void showSvgExportDialog();
+
+    void showTextColorDialog();
 
     void showMessageBox(QString message);
 
@@ -100,8 +102,6 @@ private:
 
     QString m_lang;
 
-    QString m_settingsGroup = "Application";
-
     std::unique_ptr<StateMachine> m_stateMachine;
 
     std::unique_ptr<MainWindow> m_mainWindow;
@@ -110,13 +110,11 @@ private:
 
     std::shared_ptr<EditorData> m_editorData;
 
-    std::shared_ptr<EditorScene> m_editorScene;
-
     EditorView * m_editorView = nullptr;
 
-    Node * m_actionNode = nullptr;
-
     std::unique_ptr<PngExportDialog> m_pngExportDialog;
+
+    std::unique_ptr<SvgExportDialog> m_svgExportDialog;
 };
 
 #endif // APPLICATION_HPP

@@ -16,63 +16,76 @@
 #ifndef GRAPH_HPP
 #define GRAPH_HPP
 
-#include "edge_base.hpp"
-#include "node_base.hpp"
+#include "edge.hpp"
+#include "node.hpp"
+#include "types.hpp"
 
-#include <map>
-#include <set>
-
-class NodeBase;
+#include <cstdint>
+#include <unordered_map>
+#include <vector>
 
 class Graph
 {
 public:
     Graph();
 
-    Graph(const Graph & other) = delete;
+    Graph(GraphCR other) = delete;
 
-    Graph & operator=(const Graph & other) = delete;
+    Graph & operator=(GraphCR other) = delete;
 
     virtual ~Graph();
 
-    using NodeVector = std::vector<NodeBasePtr>;
-
-    using EdgeVector = std::vector<EdgeBasePtr>;
-
     void clear();
 
-    void addNode(NodeBasePtr node);
+    void addNode(NodeS node);
 
-    void deleteNode(int index);
+    //! "Soft deletes" the given node.
+    //! The node gets **really** deleted only when the Graph is deleted.
+    //! This is to help integration with Qt that operates only on raw pointers.
+    //! \param index Index of the node to be deleted.
+    //! \returns The deleted node and connected edges that were also removed.
+    using EdgeVector = std::vector<EdgeS>;
+    std::pair<NodeS, EdgeVector> deleteNode(int index);
 
-    void addEdge(EdgeBasePtr edge);
+    void addEdge(EdgeS edge);
 
-    void deleteEdge(int index0, int index1);
+    //! "Soft deletes" the given edge.
+    //! The edge gets **really** deleted only when the Graph is deleted.
+    //! This is to help integration with Qt that operates only on raw pointers.
+    //! \param index0 Index of the source node.
+    //! \param index1 Index of the target node.
+    //! \returns The deleted edge.
+    EdgeS deleteEdge(int index0, int index1);
 
-    bool areDirectlyConnected(NodeBasePtr node0, NodeBasePtr node1);
+    bool areDirectlyConnected(NodeS node0, NodeS node1) const;
 
-    //! Warning: this should not be used outside unit tests as it creates a pure EdgeBase
-#ifdef HEIMER_UNIT_TEST
-    void addEdge(int node0, int node1);
-#endif
+    bool areDirectlyConnected(int index0, int index1) const;
+
     size_t numNodes() const;
 
-    EdgeVector getEdgesFromNode(NodeBasePtr node);
+    EdgeS getEdge(int index0, int index1) const;
 
-    EdgeVector getEdgesToNode(NodeBasePtr node);
+    EdgeVector getEdgesFromNode(NodeS node) const;
 
-    const EdgeVector & getEdges() const;
+    EdgeVector getEdgesToNode(NodeS node) const;
 
-    NodeBasePtr getNode(int index);
+    EdgeVector getEdges() const;
 
-    const NodeVector & getNodes() const;
+    NodeS getNode(int index) const;
 
-    NodeVector getNodesConnectedToNode(NodeBasePtr node);
+    using NodeVector = std::vector<NodeS>;
+    NodeVector getNodes() const;
+
+    NodeVector getNodesConnectedToNode(NodeS node) const;
 
 private:
-    NodeVector m_nodes;
+    std::unordered_map<int, NodeS> m_nodes;
 
-    EdgeVector m_edges;
+    std::unordered_map<int64_t, EdgeS> m_edges;
+
+    NodeVector m_deletedNodes;
+
+    EdgeVector m_deletedEdges;
 
     int m_count = 0;
 };

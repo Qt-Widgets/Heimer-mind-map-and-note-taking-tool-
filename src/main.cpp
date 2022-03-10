@@ -24,7 +24,6 @@
 
 #include <cstdlib>
 #include <iostream>
-#include <memory>
 
 #include <QDir>
 
@@ -35,7 +34,18 @@ static void initLogger()
     const QString logPath { QDir::tempPath() + QDir::separator() + "heimer.log" };
     L::init(logPath.toStdString().c_str());
     L::enableEchoMode(true);
-    L::enableDateTime(true);
+    L::setTimestampMode(L::TimestampMode::DateTime, " ");
+    const std::map<L::Level, std::string> symbols = {
+        { L::Level::Debug, "D" },
+        { L::Level::Error, "E" },
+        { L::Level::Fatal, "F" },
+        { L::Level::Info, "I" },
+        { L::Level::Trace, "T" },
+        { L::Level::Warning, "W" }
+    };
+    for (auto && symbol : symbols) {
+        L::setLevelSymbol(symbol.first, "[" + symbol.second + "]");
+    }
 
 #if defined(NDEBUG) or defined(QT_NO_DEBUG)
     L::setLoggingLevel(L::Level::Info);
@@ -52,27 +62,22 @@ int main(int argc, char ** argv)
 {
     HashSeed::init();
 
+#if QT_VERSION >= 0x50600 && QT_VERSION > 0x60000
+    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+#endif
     QApplication::setOrganizationName(Constants::Application::QSETTINGS_COMPANY_NAME);
     QApplication::setApplicationName(Constants::Application::QSETTINGS_SOFTWARE_NAME);
 #ifdef Q_OS_WIN32
     QSettings::setDefaultFormat(QSettings::IniFormat);
 #endif
 
-    std::unique_ptr<Application> app;
-
     try {
         initLogger();
-
-        app.reset(new Application(argc, argv));
-
-        return app->run();
+        return Application(argc, argv).run();
     } catch (std::exception & e) {
         if (!dynamic_cast<UserException *>(&e)) {
             std::cerr << e.what() << std::endl;
         }
-
-        app.reset();
-
         return EXIT_FAILURE;
     }
 }

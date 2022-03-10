@@ -8,15 +8,17 @@ function(setup_install_targets)
 
     # Add target to copy files to the binary dir.
     add_custom_target(docs ALL
+        COMMAND cmake -E copy_directory ${CMAKE_SOURCE_DIR}/data ${CMAKE_BINARY_DIR}/data
         COMMAND cmake -E copy ${CMAKE_SOURCE_DIR}/AUTHORS ${CMAKE_BINARY_DIR}/AUTHORS
         COMMAND cmake -E copy ${CMAKE_SOURCE_DIR}/CHANGELOG ${CMAKE_BINARY_DIR}/CHANGELOG
         COMMAND cmake -E copy ${CMAKE_SOURCE_DIR}/COPYING ${CMAKE_BINARY_DIR}/COPYING
         COMMAND cmake -E copy ${CMAKE_SOURCE_DIR}/README.md ${CMAKE_BINARY_DIR}/README.md
         DEPENDS ${BINARY_NAME})
 
-    # !! Note that currently this creates an installer that doesn't work.
-    # !! A statically linked Qt5 is assumed and that has problems with CMake.
-    # !! Use scripts/build-windows-installer instead.
+    # Add target to copy data files to the binary dir.
+    add_custom_target(data ALL
+        COMMAND cmake -E copy_directory ${CMAKE_SOURCE_DIR}/data ${CMAKE_BINARY_DIR}/data
+        DEPENDS ${BINARY_NAME})
 
     install(PROGRAMS ${CMAKE_BINARY_DIR}/${BINARY_NAME}.exe DESTINATION ${BIN_PATH})
     install(FILES AUTHORS CHANGELOG COPYING README.md DESTINATION ${DOC_PATH})
@@ -27,6 +29,16 @@ function(setup_install_targets)
     set(CPACK_NSIS_MUI_UNIICON ${CMAKE_SOURCE_DIR}/data/icons/heimer.ico)
     set(CPACK_NSIS_DISPLAY_NAME Heimer)
     set(CPACK_NSIS_PACKAGE_NAME Heimer)
+    set(CPACK_NSIS_HELP_LINK http://juzzlin.github.io/Heimer/)
+    set(CPACK_NSIS_URL_INFO_ABOUT http://juzzlin.github.io/Heimer/)
+
+    set(CPACK_NSIS_CREATE_ICONS_EXTRA
+        "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\${BINARY_NAME}.lnk' '$INSTDIR\\\\${BINARY_NAME}.exe'"
+    )
+
+    set(CPACK_NSIS_DELETE_ICONS_EXTRA
+        "Delete '$SMPROGRAMS\\\\$START_MENU\\\\${BINARY_NAME}.lnk'"
+    )
 
     include(CPack)
 

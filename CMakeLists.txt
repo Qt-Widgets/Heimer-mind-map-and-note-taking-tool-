@@ -19,10 +19,15 @@ if(POLICY CMP0071)
     cmake_policy(SET CMP0071 NEW)
 endif()
 
-# Global game version
-set(VERSION_MAJOR "1")
-set(VERSION_MINOR "12")
-set(VERSION_PATCH "0")
+# Default to GLVND
+if(POLICY CMP0072)
+    cmake_policy(SET CMP0072 NEW)
+endif()
+
+# Global version
+set(VERSION_MAJOR 3)
+set(VERSION_MINOR 2)
+set(VERSION_PATCH 0)
 set(VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 
 # Some common CPack variables
@@ -49,13 +54,18 @@ if(NOT CMAKE_BUILD_TYPE)
 MinSizeRel." FORCE)
 endif()
 
+# Package type info shown in the About dialog
+if(PACKAGE_TYPE)
+    add_definitions(-DPACKAGE_TYPE="${PACKAGE_TYPE}")
+endif()
+
 if(UNIX)
     include("InstallLinux.cmake")
 elseif(WIN32)
     include("InstallWindows.cmake")
 endif()
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR MINGW OR ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
@@ -78,17 +88,16 @@ elseif(MSVC)
 endif()
 
 set(BINARY_NAME "heimer")
+set(LIBRARY_NAME "HeimerLib")
 
 add_definitions(-DVERSION="${VERSION}")
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(QT_MIN_VER 5.5.1) # The version in Ubuntu 16.04
-find_package(Qt5Core ${QT_MIN_VER} REQUIRED)
-find_package(Qt5Xml ${QT_MIN_VER} REQUIRED)
-find_package(Qt5Widgets ${QT_MIN_VER} REQUIRED)
-find_package(Qt5LinguistTools ${QT_MIN_VER} REQUIRED)
-find_package(Qt5Test ${QT_MIN_VER} REQUIRED)
+# This is what Qt Creator 4.13.2 would generate
+find_package(QT NAMES Qt6 Qt5 COMPONENTS Core REQUIRED)
+find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Core Xml Widgets LinguistTools Svg Test REQUIRED)
 
 # Install paths depend on the build type and target platform
 setup_install_targets()

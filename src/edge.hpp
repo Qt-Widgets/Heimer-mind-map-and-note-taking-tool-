@@ -22,69 +22,134 @@
 #include <map>
 #include <memory>
 
-#include "edge_base.hpp"
 #include "edge_point.hpp"
+#include "edge_text_edit.hpp"
+#include "types.hpp"
 
 class EdgeDot;
-class EdgeTextEdit;
+class Graph;
 class Node;
+class QFont;
 class QGraphicsEllipseItem;
 class QPropertyAnimation;
 
 //! A graphic representation of a graph edge between nodes.
-class Edge : public QObject, public QGraphicsLineItem, public EdgeBase
+class Edge : public QObject, public QGraphicsLineItem
 {
     Q_OBJECT
 
 public:
-    Edge(Node & sourceNode, Node & targetNode, bool enableAnimations = true, bool enableLabel = true);
+    enum class ArrowMode
+    {
+        Single = 0,
+        Double = 1,
+        Hidden = 2
+    };
+
+    //! Constructor.
+    //! Note!!: We are using raw pointers here because the edge only must only refer to the nodes.
+    Edge(NodeP sourceNode, NodeP targetNode, bool enableAnimations = true, bool enableLabel = true);
+
+    //! Constructor.
+    //! Note!!: We are using raw pointers from the shared pointers here because the edge only must only refer to the nodes.
+    Edge(NodeS sourceNode, NodeS targetNode, bool enableAnimations = true, bool enableLabel = true);
+
+    //! Copy edge data and find connected node instances from the given graph.
+    Edge(EdgeCR other, GraphCR graph);
+
+    //! Copy edge data and leave connected nodes as nullptr's.
+    Edge(EdgeCR other);
 
     virtual ~Edge() override;
 
-    Node & sourceNode() const;
+    ArrowMode arrowMode() const;
 
-    Node & targetNode() const;
+    bool dashedLine() const;
+
+    bool reversed() const;
+
+    NodeR sourceNode() const;
+
+    NodeR targetNode() const;
+
+    void setSourceNode(NodeR sourceNode);
+
+    void setTargetNode(NodeR targetNode);
 
     virtual void hoverEnterEvent(QGraphicsSceneHoverEvent * event) override;
 
     virtual void hoverLeaveEvent(QGraphicsSceneHoverEvent * event) override;
 
+    QString text() const;
+
 public slots:
+
+    void changeFont(const QFont & font);
 
     void updateLine();
 
-    virtual void setArrowMode(ArrowMode arrowMode) override;
+    void setArrowMode(ArrowMode arrowMode);
 
-    virtual void setColor(const QColor & color) override;
+    void setColor(const QColor & color);
 
-    virtual void setWidth(double width) override;
+    void setDashedLine(bool enable);
 
-    virtual void setText(const QString & text) override;
+    void setWidth(double width);
 
-    virtual void setTextSize(int textSize) override;
+    void setText(const QString & text);
 
-    virtual void setReversed(bool reversed) override;
+    void setTextSize(int textSize);
 
-    virtual void setSelected(bool selected) override;
+    void setReversed(bool reversed);
+
+    void setSelected(bool selected);
 
 signals:
 
     void undoPointRequested();
 
 private:
-    QPen getPen() const;
+    QPen buildPen(bool ignoreDashSetting = false) const;
+
+    void copyData(EdgeCR other);
 
     void initDots();
 
     void setArrowHeadPen(const QPen & pen);
 
-    void setLabelVisible(bool visible);
+    void setLabelVisible(bool visible, EdgeTextEdit::VisibilityChangeReason vcr = EdgeTextEdit::VisibilityChangeReason::Default);
 
     void updateArrowhead();
 
-    void updateDots(const std::pair<EdgePoint, EdgePoint> & nearestPoints);
+    void updateDots();
 
-    void updateLabel();
+    enum class LabelUpdateReason
+    {
+        Default,
+        EdgeGeometryChanged
+    };
+
+    void updateLabel(LabelUpdateReason lur = LabelUpdateReason::Default);
+
+    NodeP m_sourceNode = nullptr;
+
+    NodeP m_targetNode = nullptr;
+
+    QString m_text;
+
+    double m_width = 2;
+
+    int m_textSize = 11; // Not sure if we should set yet another default value here..
+
+    QColor m_color;
+
+    bool m_reversed;
+
+    bool m_selected = false;
+
+    ArrowMode m_arrowMode;
+
+    bool m_dashedLine = false;
 
     bool m_enableAnimations;
 
@@ -93,6 +158,10 @@ private:
     EdgeDot * m_sourceDot;
 
     EdgeDot * m_targetDot;
+
+    QPointF m_previousRelativeSourcePos;
+
+    QPointF m_previousRelativeTargetPos;
 
     EdgeTextEdit * m_label;
 
@@ -110,7 +179,5 @@ private:
 
     QTimer m_labelVisibilityTimer;
 };
-
-using EdgePtr = std::shared_ptr<Edge>;
 
 #endif // EDGE_HPP

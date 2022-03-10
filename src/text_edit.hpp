@@ -13,8 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Heimer. If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef TEXTEDIT_HPP
-#define TEXTEDIT_HPP
+#ifndef TEXT_EDIT_HPP
+#define TEXT_EDIT_HPP
 
 #include <QGraphicsSceneMouseEvent>
 #include <QGraphicsTextItem>
@@ -26,21 +26,11 @@ class TextEdit : public QGraphicsTextItem
 public:
     explicit TextEdit(QGraphicsItem * parentItem);
 
-    virtual double maxHeight() const;
-
-    virtual void setMaxHeight(double maxHeight);
-
-    virtual double maxWidth() const;
-
     virtual void setBackgroundColor(const QColor & backgroundColor);
-
-    virtual void setMaxWidth(double maxWidth);
 
     virtual void setTextSize(int textSize);
 
     virtual void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget) override;
-
-    virtual void focusInEvent(QFocusEvent * event) override;
 
     QString text() const;
 
@@ -59,6 +49,8 @@ protected:
 
     virtual void mousePressEvent(QGraphicsSceneMouseEvent * event) override;
 
+    virtual void contextMenuEvent(QGraphicsSceneContextMenuEvent * event) override;
+
 private:
     double m_maxHeight = 0;
 
@@ -71,4 +63,4 @@ private:
     int m_textSize = 0;
 };
 
-#endif // TEXTEDIT_HPP
+#endif // TEXT_EDIT_HPP
